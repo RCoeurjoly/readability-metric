@@ -1,2 +1,2 @@
 # readability-measure
-(Beta) Readabity measures based on corpus linguistics
+(Beta) Readability measures based on corpus linguistics
