@@ -1,1 +1,5 @@
-corpus/
+*
+!.gitignore
+!readability-measure.org
+!README.md
+!LICENSE

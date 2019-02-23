@@ -13,7 +13,7 @@ for i in {1..11000}
 do
     wget -O $i.epub bibliothequenumerique.tv5monde.com/download/epub/$i
 done
-find . -name "*.epub" -size -86k -delete
+find ~/readability-measure/corpus/bibliothequenumerique.tv5monde.com/download/epub/ -name "*.epub" -size -86k -delete
   #+END_SRC
 
   #+RESULTS:
@@ -41,3 +41,126 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+RESULTS:
 | -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
 | -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
+* Analysis
+  In a first instance, we want to extract the following information from each ebook:
+  - Author
+  - Title
+  - Length in number of words
+  - Number of unique words
+** Imports
+   We import some packages to make our life easier:
+   - ebooklib: to process epubs
+   - BeautifulSoup: to process the html in epubs
+   - ntlk: to do natural language processing
+#+BEGIN_SRC python :session analysis :results none
+import ebooklib
+from ebooklib import epub
+from bs4 import BeautifulSoup
+import nltk
+import nltk.tokenize
+import codecs
+#+END_SRC
+** Epub reading
+
+#+BEGIN_SRC python :session analysis :results output
+book = epub.read_epub('/home/rcl/readability-measure/corpus/440.epub')
+try:
+    type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    source = book.get_metadata('DC', 'source')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    rights = book.get_metadata('DC', 'rights')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    relation = book.get_metadata('DC', 'relation')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    format = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    coverage = book.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    contributor = book.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    creator = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
+except:
+    pass
+try:
+    date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
+except:
+    pass
+cleantext = ""
+for item in book.get_items():
+    if item.get_type() == ebooklib.ITEM_DOCUMENT:
+        raw_html = item.get_content()
+        cleantext += BeautifulSoup(raw_html, "lxml").text
+tokens = nltk.tokenize.word_tokenize(cleantext)
+filesize = len(tokens)
+lexicalVariety = len(set(tokens))
+print "Size: " + str(filesize)
+print "Lexical variety: " + str(lexicalVariety)
+txt_text = codecs.open(
+                    str("/home/rcl/readability-measure/corpus/440.txt"),
+                    'r',
+                    'utf-8-sig',
+                    'ignore').read()
+txt_tokens = nltk.tokenize.word_tokenize(txt_text)
+txt_filesize = len(txt_tokens)
+txt_lexicalVariety = len(set(txt_tokens))
+print "TXT Size: " + str(txt_filesize)
+print "TXT Lexical variety: " + str(txt_lexicalVariety)
+#+END_SRC
+
+  #+RESULTS:
+  : Size: 68539
+  : Lexical variety: 5664
+  : TXT Size: 68539
+  : TXT Lexical variety: 5664
+
+#+NAME: python_plot
+#+BEGIN_SRC python :results img.png file
+
+import matplotlib.pyplot as plt
+plt.plot(range(5))
+plt.savefig('img.png')
+return 'img.png'
+
+#+END_SRC
+
+#+RESULTS: python_plot
+[[file:img.png]]
