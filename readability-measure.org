@@ -1,0 +1,43 @@
+* Introduction
+  In this project we are going to develop a readability measure based on corpus analysis.
+** What is a readability measure?
+   A readability measure is a set of equations used to quantify how easy a given text is to read.
+* Approach
+  We are going to approach the problem from a corpus linguistics perspective. This means that we are going to analyze a lot of books and take some general conclusions about them.
+  The basic premise used in this project is that vocabulary and readability are correlated positively.
+
+  We will use a literate programming with org mode to make our results are reproducible as possible.
+* Corpora
+  #+BEGIN_SRC shell
+for i in {1..11000}
+do
+    wget -O $i.epub bibliothequenumerique.tv5monde.com/download/epub/$i
+done
+find . -name "*.epub" -size -86k -delete
+  #+END_SRC
+
+  #+RESULTS:
+The following is the perfect script for downloading Chinese books from haodoo (好讀).
+It removes those in vertical format with -R "V*.epub".
+  #+BEGIN_SRC shell
+wget -np -P ~/readability-measure/corpus/Chinese/ -r -A .epub -R "V*.epub" http://haodoo.net/PDB/
+  #+END_SRC
+
+#+BEGIN_SRC shell
+cd ~/readability-measure/corpus/Chinese/haodoo.net/PDB/
+find . -mindepth 1 -type f -name "*.epub" -exec printf x \; | wc -c
+find . -mindepth 1 -type f -name "*435*.epub"
+#+END_SRC
+
+#+RESULTS:
+| 3699          |
+| ./A/435.epub  |
+| ./D/1435.epub |
+
+#+BEGIN_SRC shell
+ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
+#+END_SRC
+
+#+RESULTS:
+| -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
+| -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
