@@ -1,3 +1,6 @@
+#+TITLE: Analysis
+#+AUTHOR: Roland Coeurjoly
+#+EMAIL: rolandcoeurjoly@gmail.com
 * Introduction
   In this project we are going to develop a readability measure based on corpus analysis.
 ** What is a readability measure?
@@ -42,17 +45,32 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 | -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
 | -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
 * Analysis
+  #+PROPERTY: session *python*
+  #+PROPERTY: cache yes
+  #+PROPERTY: results none
   In a first instance, we want to extract the following information from each ebook:
   - Author
   - Title
   - Length in number of words
   - Number of unique words
+#+BEGIN_SRC python :noweb yes :tangle analysis.py :exports none
+# imports
+<<imports>>
+<<epub-handling>>
+#+END_SRC
+
+#+RESULTS:
+: None
+
 ** Imports
    We import some packages to make our life easier:
    - ebooklib: to process epubs
    - BeautifulSoup: to process the html in epubs
    - ntlk: to do natural language processing
-#+BEGIN_SRC python :session analysis :results none
+#+NAME: imports
+#+BEGIN_SRC python :session python :results none
+import sys
+import os
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
@@ -60,10 +78,44 @@ import nltk
 import nltk.tokenize
 import codecs
 #+END_SRC
+
 ** Epub reading
 
-#+BEGIN_SRC python :session analysis :results output
-book = epub.read_epub('/home/rcl/readability-measure/corpus/440.epub')
+   We then proceed to open the epub and extract all metadata.
+   As stated in the [[https://ebooklib.readthedocs.io/en/latest/tutorial.html#reading-epub][package documentation]], only creator, title and language are required metadata fields.
+   The rest is optional, so we catch them with care.
+
+   We then use BeautifulSoup to remove all html marks.
+#+NAME: epub-handling
+#+BEGIN_SRC python :noweb yes
+path = "/home/rcl/readability-measure/corpus/bibliothequenumerique.tv5monde.com/download/epub/"
+f = open("lexicalVarietyVsLength.tsv", "w+")
+i = 1
+for dirpath, dirnames, files in os.walk(path):
+    for ebook in files:
+        print "Reading ebook " + str(i)
+        book = epub.read_epub(dirpath + "/" + ebook)
+        <<get-epub-metadata>>
+        <<text-extraction>>
+        <<nltk-processing>>
+        print >>f, str(filesize) + "\t" + str(lexicalVariety)
+        i += 1
+f.close()
+#+END_SRC
+#+NAME: text-extraction
+#+BEGIN_SRC python :noweb yes
+cleantext = ""
+for item in book.get_items():
+    if item.get_type() == ebooklib.ITEM_DOCUMENT:
+        raw_html = item.get_content()
+        <<html-cleaning>>
+#+END_SRC
+#+NAME: html-cleaning
+#+BEGIN_SRC python
+cleantext += BeautifulSoup(raw_html, "lxml").text
+#+END_SRC
+#+NAME: get-epub-metadata
+#+BEGIN_SRC python
 try:
     type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
 except:
@@ -124,14 +176,15 @@ try:
     date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
 except:
     pass
-cleantext = ""
-for item in book.get_items():
-    if item.get_type() == ebooklib.ITEM_DOCUMENT:
-        raw_html = item.get_content()
-        cleantext += BeautifulSoup(raw_html, "lxml").text
+#+END_SRC
+#+NAME: nltk-processing
+#+BEGIN_SRC python
 tokens = nltk.tokenize.word_tokenize(cleantext)
 filesize = len(tokens)
 lexicalVariety = len(set(tokens))
+#+END_SRC
+
+#+BEGIN_SRC python :session python :results output
 print "Size: " + str(filesize)
 print "Lexical variety: " + str(lexicalVariety)
 txt_text = codecs.open(
@@ -147,20 +200,43 @@ print "TXT Lexical variety: " + str(txt_lexicalVariety)
 #+END_SRC
 
   #+RESULTS:
-  : Size: 68539
-  : Lexical variety: 5664
-  : TXT Size: 68539
-  : TXT Lexical variety: 5664
+  : Traceback (most recent call last):
+  :   File "<stdin>", line 1, in <module>
+  :   File "/tmp/babel-vpxI7x/python-tY4XLP", line 1
+  :     print "Size: " + str(filesize)
+  :     ^
+  : IndentationError: unexpected indent
 
-#+NAME: python_plot
-#+BEGIN_SRC python :results img.png file
+** Trial gnuplot
 
-import matplotlib.pyplot as plt
-plt.plot(range(5))
-plt.savefig('img.png')
-return 'img.png'
-
+#+RESULTS:
+#+NAME: output
+#+BEGIN_SRC shell :file output.dat replace
+python ~/readability-measure/analysis.py
 #+END_SRC
 
-#+RESULTS: python_plot
-[[file:img.png]]
+#+RESULTS: output
+[[file:output.dat]]
+68539	5664
+]]
+
+#+header: :stdin output
+#+BEGIN_SRC gnuplot
+plot 'lexicalVarietyVsLogLength.tsv'
+plot 'lexicalVarietyVsLength.tsv'
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC python :results none
+import math
+file = open("/home/rcl/readability-measure/lexicalVarietyVsLength.tsv", "r")
+logfile = open("/home/rcl/readability-measure/lexicalVarietyVsLogLength.tsv", "w")
+for line in file:
+    print line.rsplit('\t', 1)[0]
+    print math.log(float(line.rsplit('\t', 1)[0]), 2)
+    logfile.write(str(math.log(float(line.rsplit('\t', 1)[0]), 2)) + "\t" + str(line.rsplit('\t', 1)[0]) + '\n')
+    print '\n'
+file.close()
+logfile.close()
+#+END_SRC
