@@ -11,6 +11,7 @@
 
   We will use a literate programming with org mode to make our results are reproducible as possible.
 * Corpora
+** French
   #+BEGIN_SRC shell
 for i in {1..11000}
 do
@@ -20,6 +21,7 @@ find ~/readability-measure/corpus/bibliothequenumerique.tv5monde.com/download/ep
   #+END_SRC
 
   #+RESULTS:
+** Chinese
 The following is the perfect script for downloading Chinese books from haodoo (好讀).
 It removes those in vertical format with -R "V*.epub".
   #+BEGIN_SRC shell
@@ -44,6 +46,14 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+RESULTS:
 | -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
 | -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
+** All
+   The Gutenberg project is also a good source of books.
+   We could create different files for each language with length and lexical variety.
+   Also, a convenient feature of the Gutenberg library is that it has ebooks with images and without.
+   We download without images to save bandwidth.
+   #+BEGIN_SRC shell
+wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimages"
+   #+END_SRC
 * Analysis
   #+PROPERTY: session *python*
   #+PROPERTY: cache yes
