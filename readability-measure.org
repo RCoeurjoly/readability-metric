@@ -56,6 +56,7 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+BEGIN_SRC python :noweb yes :tangle analysis.py :exports none
 # imports
 <<imports>>
+# main function
 <<epub-handling>>
 #+END_SRC
 
@@ -87,33 +88,45 @@ import codecs
 
    We then use BeautifulSoup to remove all html marks.
 #+NAME: epub-handling
-#+BEGIN_SRC python :noweb yes
-path = "/home/rcl/readability-measure/corpus/bibliothequenumerique.tv5monde.com/download/epub/"
-f = open("lexicalVarietyVsLength.tsv", "w+")
+#+BEGIN_SRC python :noweb yes :session python
+path = "/home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/"
+f = open("/home/rcl/readability-measure/corpus/Chinese/chinese.tsv", "w+")
 i = 1
 for dirpath, dirnames, files in os.walk(path):
     for ebook in files:
-        print "Reading ebook " + str(i)
-        book = epub.read_epub(dirpath + "/" + ebook)
-        <<get-epub-metadata>>
-        <<text-extraction>>
-        <<nltk-processing>>
-        print >>f, str(filesize) + "\t" + str(lexicalVariety)
-        i += 1
+        print "Reading ebook " + ebook + ", number  " + str(i)
+        try:
+            book = epub.read_epub(dirpath + "/" + ebook)
+            <<get-epub-metadata>>
+            <<text-extraction>>
+            <<nltk-processing>>
+            print >>f, str(filesize) + "\t" + str(lexicalVariety)
+            i += 1
+        except:
+            pass
 f.close()
 #+END_SRC
+
+#+RESULTS: epub-handling
+
 #+NAME: text-extraction
-#+BEGIN_SRC python :noweb yes
+#+BEGIN_SRC python :session python :noweb yes
 cleantext = ""
 for item in book.get_items():
     if item.get_type() == ebooklib.ITEM_DOCUMENT:
         raw_html = item.get_content()
         <<html-cleaning>>
 #+END_SRC
+
+#+RESULTS: text-extraction
+
 #+NAME: html-cleaning
-#+BEGIN_SRC python
+#+BEGIN_SRC python :session python
 cleantext += BeautifulSoup(raw_html, "lxml").text
 #+END_SRC
+
+#+RESULTS: html-cleaning
+
 #+NAME: get-epub-metadata
 #+BEGIN_SRC python
 try:
@@ -178,21 +191,42 @@ except:
     pass
 #+END_SRC
 #+NAME: nltk-processing
-#+BEGIN_SRC python
-tokens = nltk.tokenize.word_tokenize(cleantext)
+#+BEGIN_SRC python :session python
+if (language != 'zh-TW'):
+    tokens = nltk.tokenize.word_tokenize(cleantext)
+else:
+    tokens = ''.join(c for c in cleantext if u'\u4e00' <= c <= u'\u9fff')
 filesize = len(tokens)
 lexicalVariety = len(set(tokens))
 #+END_SRC
 
+#+RESULTS: nltk-processing
+
+#+NAME: test-western
 #+BEGIN_SRC python :session python :results output
 print "Size: " + str(filesize)
 print "Lexical variety: " + str(lexicalVariety)
 txt_text = codecs.open(
-                    str("/home/rcl/readability-measure/corpus/440.txt"),
-                    'r',
-                    'utf-8-sig',
-                    'ignore').read()
+    str("/home/rcl/readability-measure/corpus/440.txt"),
+    'r',
+    'utf-8-sig',
+    'ignore').read()
 txt_tokens = nltk.tokenize.word_tokenize(txt_text)
+txt_filesize = len(txt_tokens)
+txt_lexicalVariety = len(set(txt_tokens))
+print "TXT Size: " + str(txt_filesize)
+print "TXT Lexical variety: " + str(txt_lexicalVariety)
+#+END_SRC
+
+#+NAME: test-chinese
+#+BEGIN_SRC python :session python :results output
+print "Size: " + str(filesize)
+print "Lexical variety: " + str(lexicalVariety)
+txt_tokens = ''.join(c for c in codecs.open(
+    str("/home/rcl/readability-measure/test/17F0b.txt"),
+    'r',
+    'utf-8-sig',
+    'ignore').read() if u'\u4e00' <= c <= u'\u9fff')
 txt_filesize = len(txt_tokens)
 txt_lexicalVariety = len(set(txt_tokens))
 print "TXT Size: " + str(txt_filesize)
@@ -202,10 +236,9 @@ print "TXT Lexical variety: " + str(txt_lexicalVariety)
   #+RESULTS:
   : Traceback (most recent call last):
   :   File "<stdin>", line 1, in <module>
-  :   File "/tmp/babel-vpxI7x/python-tY4XLP", line 1
+  :   File "/tmp/babel-vpxI7x/python-9FEIgK", line 1, in <module>
   :     print "Size: " + str(filesize)
-  :     ^
-  : IndentationError: unexpected indent
+  : NameError: name 'filesize' is not defined
 
 ** Trial gnuplot
 
@@ -224,18 +257,26 @@ python ~/readability-measure/analysis.py
 #+BEGIN_SRC gnuplot
 plot 'lexicalVarietyVsLogLength.tsv'
 plot 'lexicalVarietyVsLength.tsv'
+plot '/home/rcl/readability-measure/corpus/Chinese/chinese.tsv'
 #+END_SRC
 
 #+RESULTS:
 
+#+BEGIN_SRC gnuplot :file chinese.png
+plot '/home/rcl/readability-measure/corpus/Chinese/chineseLog.tsv'
+#+END_SRC
+
+#+RESULTS:
+[[file:chinese.png]]
+
 #+BEGIN_SRC python :results none
 import math
-file = open("/home/rcl/readability-measure/lexicalVarietyVsLength.tsv", "r")
-logfile = open("/home/rcl/readability-measure/lexicalVarietyVsLogLength.tsv", "w")
+file = open("/home/rcl/readability-measure/corpus/Chinese/chinese.tsv", "r")
+logfile = open("/home/rcl/readability-measure/corpus/Chinese/chineseLog.tsv", "w")
 for line in file:
     print line.rsplit('\t', 1)[0]
-    print math.log(float(line.rsplit('\t', 1)[0]), 2)
-    logfile.write(str(math.log(float(line.rsplit('\t', 1)[0]), 2)) + "\t" + str(line.rsplit('\t', 1)[0]) + '\n')
+    print math.log(float(line.rsplit('\t', 1)[0]), 10)
+    logfile.write(str(math.log(float(line.rsplit('\t', 1)[0]), 2)) + "\t" + str(line.rsplit('\t', 1)[1]) + '\n')
     print '\n'
 file.close()
 logfile.close()
