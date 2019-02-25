@@ -119,6 +119,8 @@ f.close()
 
 #+RESULTS: epub-handling
 
+We extract all chapters in html format.
+
 #+NAME: text-extraction
 #+BEGIN_SRC python :session python :noweb yes
 cleantext = ""
