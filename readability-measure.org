@@ -46,6 +46,8 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+RESULTS:
 | -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
 | -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
+** Arabic
+   [[http://www.hindawi.org/][http://www.hindawi.org/]]
 ** All
    The Gutenberg project is also a good source of books.
    We could create different files for each language with length and lexical variety.
