@@ -63,6 +63,10 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
   - Title
   - Length in number of words
   - Number of unique words
+  It would be nice to create a file for each language (according to metadata).
+  The logic would be the following:
+  Try adding the results to a file suffixed with the language code.
+  If that throws an exception, create the file and add the results
 #+BEGIN_SRC python :noweb yes :tangle analysis.py :exports none
 # imports
 <<imports>>
@@ -99,8 +103,7 @@ import codecs
    We then use BeautifulSoup to remove all html marks.
 #+NAME: epub-handling
 #+BEGIN_SRC python :noweb yes :session python
-path = "/home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/"
-f = open("/home/rcl/readability-measure/corpus/Chinese/chinese.tsv", "w+")
+path = "/home/rcl/readability-measure/corpus/"
 i = 1
 for dirpath, dirnames, files in os.walk(path):
     for ebook in files:
@@ -110,17 +113,39 @@ for dirpath, dirnames, files in os.walk(path):
             <<get-epub-metadata>>
             <<text-extraction>>
             <<nltk-processing>>
-            print >>f, str(filesize) + "\t" + str(lexicalVariety)
+            <<file-writing>>
             i += 1
         except:
             pass
-f.close()
 #+END_SRC
 
 #+RESULTS: epub-handling
 
+<<<<<<< cf368f97fbfcf1869d69b64042193ed25b54a73d
 We extract all chapters in html format.
 
+=======
+#+NAME: file-writing
+#+BEGIN_SRC python
+with open("/home/rcl/readability-measure/" + language + ".tsv", "a") as myfile:
+    myfile.write(str(filesize) + "\t"
+                 + str(lexicalVariety) + "\t"
+                 + str(language) + "\t"
+                 + str(creator) + "\t"
+                 + str(title) + "\t"
+                 + str(type) + "\t"
+                 + str(subject) + "\t"
+                 + str(source) + "\t"
+                 + str(rights) + "\t"
+                 + str(relation) + "\t"
+                 + str(publisher) + "\t"
+                 + str(identifier) + "\t"
+                 + str(format) + "\t"
+                 # + str(description) + "\t"
+                 + str(contributor) + "\t"
+                 + str(date) + "\n")
+#+END_SRC
+>>>>>>> Add tsv files
 #+NAME: text-extraction
 #+BEGIN_SRC python :session python :noweb yes
 cleantext = ""
@@ -144,63 +169,63 @@ cleantext += BeautifulSoup(raw_html, "lxml").text
 try:
     type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
 except:
-    pass
+    type = '-'
 try:
     subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
 except:
-    pass
+    subject = '-'
 try:
     source = book.get_metadata('DC', 'source')[0][0].encode('utf-8')
 except:
-    pass
+    source = '-'
 try:
     rights = book.get_metadata('DC', 'rights')[0][0].encode('utf-8')
 except:
-    pass
+    rights = '-'
 try:
     relation = book.get_metadata('DC', 'relation')[0][0].encode('utf-8')
 except:
-    pass
+    relation = '-'
 try:
     publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
 except:
-    pass
+    publisher = '-'
 try:
     language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
 except:
-    pass
+    language = '-'
 try:
     identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
 except:
-    pass
+    identifier = '-'
 try:
     format = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
 except:
-    pass
+    format = '-'
 try:
     description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
 except:
-    pass
+    description = '-'
 try:
     coverage = book.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
 except:
-    pass
+    coverage = '-'
 try:
     contributor = book.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
 except:
-    pass
+    contributor = '-'
 try:
     creator = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
 except:
-    pass
+    creator = '-'
 try:
     title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
 except:
-    pass
+    title = '-'
 try:
     date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
 except:
-    pass
+    date = '-'
 #+END_SRC
 #+NAME: nltk-processing
 #+BEGIN_SRC python :session python
@@ -265,17 +290,15 @@ python ~/readability-measure/analysis.py
 68539	5664
 ]]
 
-#+header: :stdin output
+Perfect. It plots the first two columns and doesn't give an error about all the rest.
 #+BEGIN_SRC gnuplot
-plot 'lexicalVarietyVsLogLength.tsv'
-plot 'lexicalVarietyVsLength.tsv'
-plot '/home/rcl/readability-measure/corpus/Chinese/chinese.tsv'
+plot '/home/rcl/readability-measure/zh-TW.tsv'
 #+END_SRC
 
 #+RESULTS:
 
 #+BEGIN_SRC gnuplot :file chinese.png
-plot '/home/rcl/readability-measure/corpus/Chinese/chineseLog.tsv'
+plot '/home/rcl/readability-measure/corpus/bibliothequenumerique.tv5monde.com/lexicalVarietyVsLength.tsv'
 #+END_SRC
 
 #+RESULTS:
