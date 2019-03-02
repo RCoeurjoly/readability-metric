@@ -121,10 +121,6 @@ for dirpath, dirnames, files in os.walk(path):
 
 #+RESULTS: epub-handling
 
-<<<<<<< cf368f97fbfcf1869d69b64042193ed25b54a73d
-We extract all chapters in html format.
-
-=======
 #+NAME: file-writing
 #+BEGIN_SRC python
 with open("/home/rcl/readability-measure/" + language + ".tsv", "a") as myfile:
@@ -145,7 +141,7 @@ with open("/home/rcl/readability-measure/" + language + ".tsv", "a") as myfile:
                  + str(contributor) + "\t"
                  + str(date) + "\n")
 #+END_SRC
->>>>>>> Add tsv files
+
 #+NAME: text-extraction
 #+BEGIN_SRC python :session python :noweb yes
 cleantext = ""
