@@ -46,8 +46,16 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+RESULTS:
 | -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
 | -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
+|            |   |     |     |        |     |    |       |                                                                         |
 ** Arabic
    [[http://www.hindawi.org/][http://www.hindawi.org/]]
+   #+BEGIN_SRC shell
+wget -np -P ~/readability-measure/corpus/Arabic/ -r -A .epub http://www.hindawi.org/books/
+   #+END_SRC
+** Russian
+   #+BEGIN_SRC shell
+wget -np -P ~/readability-measure/corpus/Russian/ -r -A .epub https://www.rulit.me/
+   #+END_SRC
 ** All
    The Gutenberg project is also a good source of books.
    We could create different files for each language with length and lexical variety.
@@ -105,7 +113,7 @@ import codecs
    We then use BeautifulSoup to remove all html marks.
 #+NAME: epub-handling
 #+BEGIN_SRC python :noweb yes :session python
-path = "/home/rcl/readability-measure/corpus/"
+path = "/home/rcl/Downloads/ebooks-pt/"
 i = 1
 for dirpath, dirnames, files in os.walk(path):
     for ebook in files:
@@ -191,7 +199,7 @@ except:
 try:
     language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
 except:
-    language = '-'
+    language = 'empty'
 try:
     identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
 except:
@@ -275,42 +283,53 @@ print "TXT Lexical variety: " + str(txt_lexicalVariety)
   :     print "Size: " + str(filesize)
   : NameError: name 'filesize' is not defined
 
-** Trial gnuplot
-
-#+RESULTS:
-#+NAME: output
-#+BEGIN_SRC shell :file output.dat replace
-python ~/readability-measure/analysis.py
-#+END_SRC
-
-#+RESULTS: output
-[[file:output.dat]]
-68539	5664
-]]
+* Plotting
 
 Perfect. It plots the first two columns and doesn't give an error about all the rest.
-#+BEGIN_SRC gnuplot
-plot '/home/rcl/readability-measure/zh-TW.tsv'
+#+BEGIN_SRC gnuplot :file western-languages.png
+set title "Lexical variety Vs Length"
+set xlabel "Length in words"
+set ylabel "Unique words"
+set logscale x
+set logscale y
+es_filelist=system("ls es*.tsv")
+fr_filelist=system("ls fr*.tsv")
+pt_filelist=system("ls p*.tsv")
+plot  for [filename in es_filelist] filename title 'Spanish' linecolor 1, \
+      for [filename in fr_filelist] filename title 'French' linecolor 2, \
+      for [filename in pt_filelist] filename title 'Portuguese' linecolor 3, \
+      'ar.tsv' title 'Arabic' linecolor 4, \
+      'zh-TW.tsv' title 'Chinese' linecolor 5
 #+END_SRC
 
 #+RESULTS:
+[[file:languages.png]]
 
 #+BEGIN_SRC gnuplot :file chinese.png
-plot '/home/rcl/readability-measure/corpus/bibliothequenumerique.tv5monde.com/lexicalVarietyVsLength.tsv'
+set title "Lexical variety Vs Length"
+set xlabel "Length in characters"
+set ylabel "Unique characters"
+set logscale x
+plot 'zh-TW.tsv' title 'Chinese' linecolor 1
 #+END_SRC
 
 #+RESULTS:
-[[file:chinese.png]]
 
-#+BEGIN_SRC python :results none
-import math
-file = open("/home/rcl/readability-measure/corpus/Chinese/chinese.tsv", "r")
-logfile = open("/home/rcl/readability-measure/corpus/Chinese/chineseLog.tsv", "w")
-for line in file:
-    print line.rsplit('\t', 1)[0]
-    print math.log(float(line.rsplit('\t', 1)[0]), 10)
-    logfile.write(str(math.log(float(line.rsplit('\t', 1)[0]), 2)) + "\t" + str(line.rsplit('\t', 1)[1]) + '\n')
-    print '\n'
-file.close()
-logfile.close()
+#+BEGIN_SRC gnuplot :file arabic.png
+set title "Lexical variety Vs Length"
+set xlabel "Length in characters"
+set ylabel "Unique characters"
+set logscale x
+set logscale y
+plot 'ar.tsv' title 'Arabic' linecolor 1
+#+END_SRC
+
+#+BEGIN_SRC gnuplot :file test.png
+set title "Lexical variety Vs Length"
+set xlabel "Length in words"
+set ylabel "Unique words"
+set logscale x
+set logscale y
+filelist=system("ls p*.tsv")
+plot  for [filename in filelist] filename title filename
 #+END_SRC
