@@ -289,7 +289,7 @@ print "TXT Lexical variety: " + str(txt_lexicalVariety)
 * Plotting
 
 Perfect. It plots the first two columns and doesn't give an error about all the rest.
-#+BEGIN_SRC gnuplot :exports both all_.png
+#+BEGIN_SRC gnuplot :exports both :file chinese.png
 set title "Lexical variety Vs Length"
 set xlabel "Length in words"
 set ylabel "Unique words"
@@ -306,7 +306,7 @@ plot  for [filename in es_filelist] filename title 'Spanish' linecolor 1, \
 #+END_SRC
 
 #+RESULTS:
-[[file:languages.png]]
+[[file:chinese.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file chinese.png
 set title "Lexical variety Vs Length"
@@ -318,6 +318,7 @@ plot 'zh-TW.tsv' title 'Chinese' linecolor 1
 #+END_SRC
 
 #+RESULTS:
+[[file:chinese.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file arabic.png
 set title "Lexical variety Vs Length"
@@ -327,6 +328,9 @@ set logscale x
 set logscale y
 plot 'ar.tsv' title 'Arabic' linecolor 1
 #+END_SRC
+
+#+RESULTS:
+[[file:arabic.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file all.png
 set multiplot
