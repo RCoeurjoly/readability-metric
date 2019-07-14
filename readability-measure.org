@@ -365,6 +365,8 @@ for i in xrange(0,lexicalVariety,1000):
   print(i)
   #+END_SRC
 
+  #+RESULTS:
+
 
 
 #+NAME: file-writing-sweep
@@ -382,12 +384,85 @@ set encoding utf8
 set title "Lexical variety Vs Length"
 set xlabel "Length in characters"
 set ylabel "Unique characters"
-set logscale xR
+set logscale x
 set nologscale y
 plot '/home/rcl/readability-measure/test/0936.tsv' title 'Jipin Jiading' linecolor 1, \
      '/home/rcl/readability-measure/test/1077-4000.tsv' title 'Cixi Quanzhuan' linecolor 2
+     #'/home/rcl/readability-measure/zh-TW.tsv' title 'Chinese' linecolor 3
 unset multiplot
 #+END_SRC
 
 #+RESULTS:
 [[file:sweep.png]]
+
+
+#+BEGIN_SRC gnuplot :exports both :file test.png
+set multiplot
+set encoding utf8
+set title "Lexical variety Vs Length"
+set xlabel "Length in characters"
+set ylabel "Unique characters"
+set logscale x
+set nologscale y
+plot '/home/rcl/readability-measure/zh-TW.tsv' title 'Jipin Jiading' linecolor 1, \
+     #'/home/rcl/readability-measure/zh-TW.tsv' title 'Cixi Quanzhuan' linecolor 2
+     #'/home/rcl/readability-measure/zh-TW.tsv' title 'Chinese' linecolor 3
+unset multiplot
+#+END_SRC
+
+#+RESULTS:
+[[file:test.png]]
+
+#+BEGIN_SRC R :file R.png :results output graphics
+dat <- read.csv("~/readability-measure/zh-TW.tsv", header=FALSE, sep="\t")
+x = dat[, 1]
+y = dat[, 2]
+
+Estimate = lm(y ~ x)
+logEstimate = lm(y ~ log(x))
+
+plot(x,predict(Estimate),type='l',col='blue')
+lines(x,predict(logEstimate),col='red')
+plot(x, y, log ="x",
+        type="p",
+        pch = 1,
+        xlab="Length (characters)",
+        ylab="Unique characters (characters)")
+#+END_SRC
+
+#+RESULTS:
+[[file:R.png]]
+
+#+begin_src R :file 3.png :results output graphics
+library(lattice)
+xyplot(1:10 ~ 1:10)
+#+end_src
+
+#+RESULTS:
+[[file:3.png]]
+** Scipy
+   #+begin_src python :results output
+from scipy.optimize import curve_fit
+from scipy import log as log
+from scipy import exp as exp
+import numpy as np
+
+a=-10
+b=20
+
+yarr = np.array([976,1440,1702,1893,2057,2166,2270,2357,2451,2521])
+xarr = np.array([5000,10000,15000,20000,25000,30000,35000,40000,45000,50000])
+
+def func(x, a, b):
+
+    return (a + b*log(x))
+
+popt, pcov = curve_fit(func,  xarr, yarr, (a,b))
+
+print "a = %s , b = %s" % (popt[0], popt[1])
+      #+end_src
+
+      #+RESULTS:
+      : [ 976 1440 1702 1893 2057 2166 2270 2357 2451 2521]
+      : <type 'numpy.int64'>
+      : a = -4726.54584637 , b = 669.135465666
