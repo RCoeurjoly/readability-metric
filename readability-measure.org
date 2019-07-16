@@ -1,4 +1,5 @@
 #+TITLE: Readability measure based on analysis of lexical variety
+
 #+AUTHOR: Roland Coeurjoly
 #+EMAIL: rolandcoeurjoly@gmail.com
 #+EXPORT_FILE_NAME: crazy_readability
@@ -105,6 +106,10 @@ from bs4 import BeautifulSoup
 import nltk
 import nltk.tokenize
 import codecs
+from scipy.optimize import curve_fit
+from scipy import log as log
+import numpy as np
+import pandas as pd
 #+END_SRC
 
 ** Epub reading
@@ -116,7 +121,7 @@ import codecs
    We then use BeautifulSoup to remove all html marks.
 #+NAME: epub-handling
 #+BEGIN_SRC python :noweb yes :session python :exports code
-path = "/home/rcl/readability-measure/test/"
+path = "/home/rcl/readability-measure/corpus/french/"
 i = 1
 for dirpath, dirnames, files in os.walk(path):
     for ebook in files:
@@ -125,8 +130,9 @@ for dirpath, dirnames, files in os.walk(path):
             book = epub.read_epub(dirpath + "/" + ebook)
             <<get-epub-metadata>>
             <<text-extraction>>
-            <<nltk-processing>>
-            <<file-writing-sweep>>
+            <<nltk-tokenization>>
+            <<lexical-sweep>>
+            <<log-writing>>
             i += 1
         except:
             pass
@@ -134,29 +140,8 @@ for dirpath, dirnames, files in os.walk(path):
 
 #+RESULTS: epub-handling
 
-#+NAME: file-writing
-#+BEGIN_SRC python :exports code
-with open("/home/rcl/readability-measure/test/" + ebook + ".tsv", "a") as myfile:
-    myfile.write(str(filesize) + "\t"
-                 + str(lexicalVariety) + "\t"
-                 + str(language) + "\t"
-                 + str(creator) + "\t"
-                 + str(title) + "\t"
-                 + str(type) + "\t"
-                 + str(subject) + "\t"
-                 + str(source) + "\t"
-                 + str(rights) + "\t"
-                 + str(relation) + "\t"
-                 + str(publisher) + "\t"
-                 + str(identifier) + "\t"
-                 + str(format) + "\t"
-                 # + str(description) + "\t"
-                 + str(contributor) + "\t"
-                 + str(date) + "\n")
-#+END_SRC
-
 #+NAME: text-extraction
-#+BEGIN_SRC python :session python :noweb yes :exports code
+#+BEGIN_SRC python :noweb yes :session python :exports code
 cleantext = ""
 for item in book.get_items():
     if item.get_type() == ebooklib.ITEM_DOCUMENT:
@@ -167,14 +152,14 @@ for item in book.get_items():
 #+RESULTS: text-extraction
 
 #+NAME: html-cleaning
-#+BEGIN_SRC python :session python :exports code
+#+BEGIN_SRC python :noweb yes :session python :exports code
 cleantext += BeautifulSoup(raw_html, "lxml").text
 #+END_SRC
 
 #+RESULTS: html-cleaning
 
 #+NAME: get-epub-metadata
-#+BEGIN_SRC python :exports code
+#+BEGIN_SRC python :noweb yes :session python :exports code
 try:
     type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
 except:
@@ -236,8 +221,8 @@ try:
 except:
     date = '-'
 #+END_SRC
-#+NAME: nltk-processing
-#+BEGIN_SRC python :session python :exports code
+#+NAME: nltk-tokenization
+#+BEGIN_SRC python :noweb yes :session python :exports code
 if (language != 'zh-TW'):
     tokens = nltk.tokenize.word_tokenize(cleantext)
 else:
@@ -246,10 +231,8 @@ filesize = len(tokens)
 lexicalVariety = len(set(tokens))
 #+END_SRC
 
-#+RESULTS: nltk-processing
-
 #+NAME: test-western
-#+BEGIN_SRC python :session python :results output :exports code
+#+BEGIN_SRC python :noweb yes :session python :exports code
 print "Size: " + str(filesize)
 print "Lexical variety: " + str(lexicalVariety)
 txt_text = codecs.open(
@@ -265,7 +248,7 @@ print "TXT Lexical variety: " + str(txt_lexicalVariety)
 #+END_SRC
 
 #+NAME: test-chinese
-#+BEGIN_SRC python :session python :results output :exports code
+#+BEGIN_SRC python :noweb yes :session python :exports code
 print "Size: " + str(filesize)
 print "Lexical variety: " + str(lexicalVariety)
 txt_tokens = ''.join(c for c in codecs.open(
@@ -286,10 +269,74 @@ print "TXT Lexical variety: " + str(txt_lexicalVariety)
   :     print "Size: " + str(filesize)
   : NameError: name 'filesize' is not defined
 
+#+NAME: log-writing
+#+BEGIN_SRC python :noweb yes :session python :exports code
+with open("/home/rcl/readability-measure/test/"
+          + str(language)
+          + ".tsv", "a+") as myfile:
+    myfile.write(str(filesize) + "\t"
+                 + str(lexicalVariety) + "\t"
+                 + str(intercept) + "\t"
+                 + str(slope) + "\t"
+                 + str(language) + "\t"
+                 + str(creator) + "\t"
+                 + str(title) + "\t"
+                 + str(type) + "\t"
+                 + str(subject) + "\t"
+                 + str(source) + "\t"
+                 + str(rights) + "\t"
+                 + str(relation) + "\t"
+                 + str(publisher) + "\t"
+                 + str(identifier) + "\t"
+                 + str(format) + "\t"
+                 # + str(description) + "\t"
+                 + str(contributor) + "\t"
+                 + str(date) + "\n")
+#+END_SRC
+
+** Curve fitting
+
+#+NAME: lexical-sweep
+#+BEGIN_SRC python :noweb yes :session python :exports code
+start = 5000
+samples = 500
+
+sweep_values = []
+if filesize > 10000:
+    for j in xrange(0, len(tokens) - start, (len(tokens) - start)/samples):
+        sweep_values.append([len(tokens[0:start + j]), len(set(tokens[0:start + j]))])
+    <<curve-fitting>>
+else:
+    intercept = '-'
+    slope = '-'
+#+END_SRC
+
+#+RESULTS: lexical-sweep
+
+   #+NAME: curve-fitting
+   #+begin_src python :noweb yes :session python :exports code
+t =  list(zip(*sweep_values))
+xarr = t[0]
+yarr = t[1]
+
+a = 0
+b = 0
+
+def func(x, a, b):
+    return (a + b*log(x))
+
+popt, pcov = curve_fit(func,  xarr, yarr, (a,b))
+intercept = popt[0]
+slope = popt[1]
+      #+end_src
+
+      #+RESULTS:
+      : a = -5813.118832427114 , b = 761.1560740930518
+
 * Plotting
 
 Perfect. It plots the first two columns and doesn't give an error about all the rest.
-#+BEGIN_SRC gnuplot :exports both :file chinese.png
+#+BEGIN_SRC gnuplot :exports both all_.png
 set title "Lexical variety Vs Length"
 set xlabel "Length in words"
 set ylabel "Unique words"
@@ -306,7 +353,7 @@ plot  for [filename in es_filelist] filename title 'Spanish' linecolor 1, \
 #+END_SRC
 
 #+RESULTS:
-[[file:chinese.png]]
+[[file:languages.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file chinese.png
 set title "Lexical variety Vs Length"
@@ -318,7 +365,6 @@ plot 'zh-TW.tsv' title 'Chinese' linecolor 1
 #+END_SRC
 
 #+RESULTS:
-[[file:chinese.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file arabic.png
 set title "Lexical variety Vs Length"
@@ -328,9 +374,6 @@ set logscale x
 set logscale y
 plot 'ar.tsv' title 'Arabic' linecolor 1
 #+END_SRC
-
-#+RESULTS:
-[[file:arabic.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file all.png
 set multiplot
@@ -366,17 +409,6 @@ for i in xrange(0,lexicalVariety,1000):
   #+END_SRC
 
   #+RESULTS:
-
-
-
-#+NAME: file-writing-sweep
-#+BEGIN_SRC python :exports code
-with open("/home/rcl/readability-measure/test/" + ebook[0:4] + ".tsv", "a") as myfile:
-    for j in xrange(0,5000,1):
-        myfile.write(str(len(tokens[5000:5000 + j])) + "\t"
-                     + str(len(set(tokens[5000:5000 + j]))) + "\n")
-        print "Analizing first " + str(len(tokens[0:j])) + " characters."
-#+END_SRC
 
 #+BEGIN_SRC gnuplot :exports both :file sweep.png
 set multiplot
@@ -440,29 +472,3 @@ xyplot(1:10 ~ 1:10)
 
 #+RESULTS:
 [[file:3.png]]
-** Scipy
-   #+begin_src python :results output
-from scipy.optimize import curve_fit
-from scipy import log as log
-from scipy import exp as exp
-import numpy as np
-
-a=-10
-b=20
-
-yarr = np.array([976,1440,1702,1893,2057,2166,2270,2357,2451,2521])
-xarr = np.array([5000,10000,15000,20000,25000,30000,35000,40000,45000,50000])
-
-def func(x, a, b):
-
-    return (a + b*log(x))
-
-popt, pcov = curve_fit(func,  xarr, yarr, (a,b))
-
-print "a = %s , b = %s" % (popt[0], popt[1])
-      #+end_src
-
-      #+RESULTS:
-      : [ 976 1440 1702 1893 2057 2166 2270 2357 2451 2521]
-      : <type 'numpy.int64'>
-      : a = -4726.54584637 , b = 669.135465666
