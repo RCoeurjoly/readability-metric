@@ -2,17 +2,18 @@
 
 #+AUTHOR: Roland Coeurjoly
 #+EMAIL: rolandcoeurjoly@gmail.com
-#+EXPORT_FILE_NAME: crazy_readability
+#+EXPORT_FILE_NAME: readability_measure
 
 * Introduction
   In this project we are going to develop a readability measure based on corpus analysis.
 ** What is a readability measure?
    A readability measure is a set of equations used to quantify how easy a given text is to read.
+   In this project, we focus on long texts, with more that 2000 words or tokens. This is in contrast with other readability measures which analyze sentences.
 * Approach
   We are going to approach the problem from a corpus linguistics perspective. This means that we are going to analyze a lot of books and take some general conclusions about them.
   The basic premise used in this project is that vocabulary and readability are correlated positively.
 
-  We will use a literate programming with org mode to make our results are reproducible as possible.
+  We will use a literate programming with org mode to make our results as reproducible as possible.
 * Corpora
 ** French
   #+BEGIN_SRC shell :exports code
@@ -32,24 +33,18 @@ wget -np -P ~/readability-measure/corpus/Chinese/ -r -A .epub -R "V*.epub" http:
   #+END_SRC
 
 #+BEGIN_SRC shell :exports code
-cd ~/readability-measure/corpus/Chinese/haodoo.net/PDB/
-find . -mindepth 1 -type f -name "*.epub" -exec printf x \; | wc -c
-find . -mindepth 1 -type f -name "*435*.epub"
+find ~/readability-measure/corpus/Chinese/haodoo.net/PDB/ -mindepth 1 -type f -name "*.epub" -exec printf x \; | wc -c
 #+END_SRC
 
 #+RESULTS:
-| 3699          |
-| ./A/435.epub  |
-| ./D/1435.epub |
+: 3699
 
 #+BEGIN_SRC shell :exports code
 ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+END_SRC
 
 #+RESULTS:
-| -rw-rw-r-- | 1 | rcl | rcl | 130599 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/V435.epub |
-| -rw-rw-r-- | 1 | rcl | rcl | 130460 | Feb | 23 | 00:07 | /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub  |
-|            |   |     |     |        |     |    |       |                                                                         |
+: -rw-rw-r-- 1 rcl rcl 130460 jul 19 16:04 /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub
 ** Arabic
    [[http://www.hindawi.
 org/][http://www.hindawi.org/]]
@@ -95,9 +90,11 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
    We import some packages to make our life easier:
    - ebooklib: to process epubs
    - BeautifulSoup: to process the html in epubs
+   - langdetect to detect language. We use this because based on experience epub language tags are not very reliable
    - ntlk: to do natural language processing
 #+NAME: imports
 #+BEGIN_SRC python :session python :results none :exports code
+# -*- coding: utf-8 -*-
 import sys
 import os
 import ebooklib
@@ -110,6 +107,9 @@ from scipy.optimize import curve_fit
 from scipy import log as log
 import numpy as np
 import pandas as pd
+from langdetect import detect
+from langdetect import DetectorFactory
+import mysql.connector
 #+END_SRC
 
 ** Epub reading
@@ -119,27 +119,34 @@ import pandas as pd
    The rest is optional, so we catch them with care.
 
    We then use BeautifulSoup to remove all html marks.
-#+NAME: epub-handling
-#+BEGIN_SRC python :noweb yes :session python :exports code
-path = "/home/rcl/readability-measure/corpus/french/"
+*** Finding ebooks
+ #+NAME: epub-handling
+ #+BEGIN_SRC python :noweb yes :session python :exports code
 i = 1
-for dirpath, dirnames, files in os.walk(path):
+for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
-        print "Reading ebook " + ebook + ", number  " + str(i)
-        try:
-            book = epub.read_epub(dirpath + "/" + ebook)
-            <<get-epub-metadata>>
-            <<text-extraction>>
-            <<nltk-tokenization>>
-            <<lexical-sweep>>
-            <<log-writing>>
-            i += 1
-        except:
-            pass
-#+END_SRC
+        if file.endswith(".epub"):
+            print "Reading ebook " + ebook + ", number  " + str(i)
+            try:
+                book = epub.read_epub(dirpath + "/" + ebook)
+                print "Getting epub metadata"
+                <<get-epub-metadata>>
+                print "Extracting text from ebook"
+                <<text-extraction>>
+                print "Detecting language"
+                <<language-detection>>
+                print "Performing tokenization"
+                <<nltk-tokenization>>
+                #<<lexical-sweep>>
+                #<<log-writing>>
+                i += 1
+            except:
+                pass
+mydb.close()
+ #+END_SRC
 
-#+RESULTS: epub-handling
-
+ #+RESULTS: epub-handling
+*** Extracting text from ebook
 #+NAME: text-extraction
 #+BEGIN_SRC python :noweb yes :session python :exports code
 cleantext = ""
@@ -150,14 +157,27 @@ for item in book.get_items():
 #+END_SRC
 
 #+RESULTS: text-extraction
-
+**** Cleaning the html
 #+NAME: html-cleaning
 #+BEGIN_SRC python :noweb yes :session python :exports code
 cleantext += BeautifulSoup(raw_html, "lxml").text
 #+END_SRC
 
 #+RESULTS: html-cleaning
+**** Language detection
+     According to the [[https://github.com/Mimino666/langdetect][README from the github page]]:
+     #+begin_quote
+     Language detection algorithm is non-deterministic, which means that if you try to run it on a text which is either too short or too ambiguous, you might get different results everytime you run it.
 
+     To enforce consistent results, call following code before the first language detection:
+     #+end_quote
+#+NAME: language-detection
+#+begin_src python :noweb yes :session python :exports code
+DetectorFactory.seed = 0
+language=detect(cleantext)
+#+end_src
+
+*** Extracting metadata
 #+NAME: get-epub-metadata
 #+BEGIN_SRC python :noweb yes :session python :exports code
 try:
@@ -184,10 +204,10 @@ try:
     publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
 except:
     publisher = '-'
-try:
-    language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
-except:
-    language = 'empty'
+#try:
+#    language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
+#except:
+#    language = 'empty'
 try:
     identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
 except:
@@ -221,54 +241,17 @@ try:
 except:
     date = '-'
 #+END_SRC
+*** Tokenization
 #+NAME: nltk-tokenization
 #+BEGIN_SRC python :noweb yes :session python :exports code
-if (language != 'zh-TW'):
+if (language != 'zh-TW' or language != 'zh-tw' or language != 'zh-cn'):
     tokens = nltk.tokenize.word_tokenize(cleantext)
 else:
     tokens = ''.join(c for c in cleantext if u'\u4e00' <= c <= u'\u9fff')
 filesize = len(tokens)
 lexicalVariety = len(set(tokens))
 #+END_SRC
-
-#+NAME: test-western
-#+BEGIN_SRC python :noweb yes :session python :exports code
-print "Size: " + str(filesize)
-print "Lexical variety: " + str(lexicalVariety)
-txt_text = codecs.open(
-    str("/home/rcl/readability-measure/corpus/440.txt"),
-    'r',
-    'utf-8-sig',
-    'ignore').read()
-txt_tokens = nltk.tokenize.word_tokenize(txt_text)
-txt_filesize = len(txt_tokens)
-txt_lexicalVariety = len(set(txt_tokens))
-print "TXT Size: " + str(txt_filesize)
-print "TXT Lexical variety: " + str(txt_lexicalVariety)
-#+END_SRC
-
-#+NAME: test-chinese
-#+BEGIN_SRC python :noweb yes :session python :exports code
-print "Size: " + str(filesize)
-print "Lexical variety: " + str(lexicalVariety)
-txt_tokens = ''.join(c for c in codecs.open(
-    str("/home/rcl/readability-measure/test/17F0b.txt"),
-    'r',
-    'utf-8-sig',
-    'ignore').read() if u'\u4e00' <= c <= u'\u9fff')
-txt_filesize = len(txt_tokens)
-txt_lexicalVariety = len(set(txt_tokens))
-print "TXT Size: " + str(txt_filesize)
-print "TXT Lexical variety: " + str(txt_lexicalVariety)
-#+END_SRC
-
-  #+RESULTS:
-  : Traceback (most recent call last):
-  :   File "<stdin>", line 1, in <module>
-  :   File "/tmp/babel-vpxI7x/python-9FEIgK", line 1, in <module>
-  :     print "Size: " + str(filesize)
-  : NameError: name 'filesize' is not defined
-
+*** Log writing
 #+NAME: log-writing
 #+BEGIN_SRC python :noweb yes :session python :exports code
 with open("/home/rcl/readability-measure/test/"
@@ -295,12 +278,12 @@ with open("/home/rcl/readability-measure/test/"
 #+END_SRC
 
 ** Curve fitting
-
+   We can only do the curve fitting with books longer than 10000 tokens. This is because, to begin with, books don't exhibit logarithmic behavior until they reach around 4 thousand words.
+   Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
 start = 5000
 samples = 500
-
 
 sweep_values = []
 if filesize > 10000:
@@ -323,12 +306,16 @@ yarr = t[1]
 a = 0
 b = 0
 
-def func(x, a, b):
+def log_func(x, a, b):
     return (a + b*log(x))
 
-popt, pcov = curve_fit(func,  xarr, yarr, (a,b))
+popt, pcov = curve_fit(log_func,  xarr, yarr, (a,b))
 intercept = popt[0]
 slope = popt[1]
+perr = np.sqrt(np.diag(pcov))
+std_error_intercept=perr[0]
+std_error_slope=perr[1]
+print popt, pcov, perr
       #+end_src
 
       #+RESULTS:
@@ -530,3 +517,146 @@ xyplot(1:10 ~ 1:10)
 
 #+RESULTS:
 [[file:3.png]]
+* SQL DB
+#+header: :engine mysql
+#+header: :dbuser root
+#+header: :dbpassword root
+#+header: :database fiction
+#+begin_src sql
+SELECT DISTINCT Language FROM main;
+#+end_src
+
+#+RESULTS:
+| Tables_in_fiction |
+|-------------------|
+| hashes            |
+| main              |
+| main_edited       |
+
+#+begin_src python :noweb yes :session python :exports code
+mydb = mysql.connector.connect(
+  host="localhost",
+  user="root",
+  passwd="root",
+  charset='utf8'
+)
+
+mycursor = mydb.cursor()
+
+try:
+    mycursor.execute("CREATE DATABASE library")
+except:
+    mycursor.execute("USE library;")
+
+try:
+    mycursor.execute("""CREATE TABLE corpus (id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255),
+    author VARCHAR(255),
+    slope DECIMAL(5,3),
+    intercept DECIMAL(5,3),
+    std_error_slope DECIMAL(5,3),
+    std_error_intercept DECIMAL(5,3),
+    word_count DECIMAL(10,3),
+    lexical_variety DECIMAL(10,3),
+    language VARCHAR(255),
+    type VARCHAR(255),
+    subject VARCHAR(255),
+    source VARCHAR(255),
+    rights VARCHAR(255),
+    relation VARCHAR(255),
+    publisher VARCHAR(255),
+    identifier VARCHAR(255),
+    format VARCHAR(255),
+    description VARCHAR(510),
+    contributor VARCHAR(255),
+    date VARCHAR(255))""")
+except:
+    pass
+
+mycursor.execute("ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+mycursor.execute("ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+
+try:
+    mycursor.execute("ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
+except:
+    pass
+
+sql = """INSERT IGNORE corpus (title,
+author,
+slope,
+intercept,
+std_error_slope,
+std_error_intercept,
+word_count,
+lexical_variety,
+language,
+type,
+subject,
+source,
+rights,
+relation,
+publisher,
+identifier,
+format,
+description,
+contributor,
+date
+) VALUES (%s,
+%s,
+%d,
+%d,
+%d,
+%d,
+%d,
+%d,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s)"""
+val = (title,
+author,
+slope,
+intercept,
+std_error_slope,
+std_error_intercept,
+word_count,
+lexical_variety,
+language,
+type,
+subject,
+source,
+rights,
+relation,
+publisher,
+identifier,
+format,
+description,
+contributor,
+date)
+
+try:
+    mycursor.execute(sql, val)
+    mydb.commit()
+    print("1 record inserted, ID:", mycursor.lastrowid)
+except:
+    pass
+#+end_src
+
+#+RESULTS:
+#+NAME: does-book-exist-db
+#+begin_src python :noweb yes :session python :exports code
+query = "SELECT * from corpus where MemberID="
+tmp_query=query+loginID
+mycursor.execute(tmp_query)
+if cursor.rowcount==1:
+        ## Do your thing here
+        break
+#+end_src
