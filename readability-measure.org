@@ -11,9 +11,9 @@
    In this project, we focus on long texts, with more that 2000 words or tokens. This is in contrast with other readability measures which analyze sentences.
 * Approach
   We are going to approach the problem from a corpus linguistics perspective. This means that we are going to analyze a lot of books and take some general conclusions about them.
-  The basic premise used in this project is that vocabulary and readability are correlated positively.
+  The basic premise used in this project is that vocabulary and readability are correlated negatively, i.e., the larger the vocabulary, the more difficult to understand.
 
-  We will use a literate programming with org mode to make our results as reproducible as possible.
+  We will use a literate programming approach using GNU/Emacs org mode to make our results as reproducible as possible.
 * Corpora
 ** French
   #+BEGIN_SRC shell :exports code
