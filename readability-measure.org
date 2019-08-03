@@ -9,6 +9,9 @@
 ** What is a readability measure?
    A readability measure is a set of equations used to quantify how easy a given text is to read.
    In this project, we focus on long texts, with more that 2000 words or tokens. This is in contrast with other readability measures which analyze sentences.
+* Literature review
+  Alexander Arguelles proposes the following:
+
 * Approach
   We are going to approach the problem from a corpus linguistics perspective. This means that we are going to analyze a lot of books and take some general conclusions about them.
   The basic premise used in this project is that vocabulary and readability are correlated negatively, i.e., the larger the vocabulary, the more difficult to understand.
@@ -107,9 +110,10 @@ from scipy.optimize import curve_fit
 from scipy import log as log
 import numpy as np
 import pandas as pd
-from langdetect import detect
-from langdetect import DetectorFactory
+import math
 import mysql.connector
+import polyglot
+from polyglot.text import Text, Word
 #+END_SRC
 
 ** Epub reading
@@ -123,26 +127,32 @@ import mysql.connector
  #+NAME: epub-handling
  #+BEGIN_SRC python :noweb yes :session python :exports code
 i = 1
+<<fit-functions>>
+<<curve-fitting>>
 for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
-        if file.endswith(".epub"):
-            print "Reading ebook " + ebook + ", number  " + str(i)
+        if ebook.endswith(".epub"):
+            print ("Reading ebook " + ebook + ", number  " + str(i))
             try:
                 book = epub.read_epub(dirpath + "/" + ebook)
-                print "Getting epub metadata"
+                print ("Getting epub metadata")
                 <<get-epub-metadata>>
-                print "Extracting text from ebook"
+                print ("Extracting text from ebook")
                 <<text-extraction>>
-                print "Detecting language"
+                print ("Detecting language")
                 <<language-detection>>
-                print "Performing tokenization"
-                <<nltk-tokenization>>
+                print (language)
+                print ("Performing tokenization")
+                <<tokenization>>
                 #<<lexical-sweep>>
+                #print ("Writing to file")
                 #<<log-writing>>
+                print ("Writing to database")
+                <<database-insertion>>
                 i += 1
             except:
                 pass
-mydb.close()
+#mydb.close()
  #+END_SRC
 
  #+RESULTS: epub-handling
@@ -165,16 +175,9 @@ cleantext += BeautifulSoup(raw_html, "lxml").text
 
 #+RESULTS: html-cleaning
 **** Language detection
-     According to the [[https://github.com/Mimino666/langdetect][README from the github page]]:
-     #+begin_quote
-     Language detection algorithm is non-deterministic, which means that if you try to run it on a text which is either too short or too ambiguous, you might get different results everytime you run it.
-
-     To enforce consistent results, call following code before the first language detection:
-     #+end_quote
 #+NAME: language-detection
 #+begin_src python :noweb yes :session python :exports code
-DetectorFactory.seed = 0
-language=detect(cleantext)
+language=cleantext.language.code
 #+end_src
 
 *** Extracting metadata
@@ -242,25 +245,27 @@ except:
     date = '-'
 #+END_SRC
 *** Tokenization
-#+NAME: nltk-tokenization
+    If the language is Chinese, appart from doing the tokenization, we also measure individual characters.
+#+NAME: tokenization
 #+BEGIN_SRC python :noweb yes :session python :exports code
-if (language != 'zh-TW' or language != 'zh-tw' or language != 'zh-cn'):
-    tokens = nltk.tokenize.word_tokenize(cleantext)
-else:
-    tokens = ''.join(c for c in cleantext if u'\u4e00' <= c <= u'\u9fff')
-filesize = len(tokens)
-lexicalVariety = len(set(tokens))
+if (language == 'zh' or language == 'zh-Hant'):
+    zh_characters = ''.join(c for c in cleantext if u'\u4e00' <= c <= u'\u9fff')
+tokens = cleantext.words
+word_count = len(tokens)
+unique_words = len(set(tokens))
+character_count = len(zh_characters)
+unique_characters = len(set(zh_characters))
 #+END_SRC
 *** Log writing
 #+NAME: log-writing
 #+BEGIN_SRC python :noweb yes :session python :exports code
 with open("/home/rcl/readability-measure/test/"
           + str(language)
-          + ".tsv", "a+") as myfile:
-    myfile.write(str(filesize) + "\t"
-                 + str(lexicalVariety) + "\t"
-                 + str(intercept) + "\t"
-                 + str(slope) + "\t"
+          + ".tsv", "w") as myfile:
+    myfile.write(str(wordCount) + "\t"
+                 + str(uniqueWords) + "\t"
+                 #+ str(intercept) + "\t"
+                 #+ str(slope) + "\t"
                  + str(language) + "\t"
                  + str(creator) + "\t"
                  + str(title) + "\t"
@@ -286,36 +291,56 @@ start = 5000
 samples = 500
 
 sweep_values = []
-if filesize > 10000:
+if word_count > 10000:
     for j in xrange(0, len(tokens) - start, (len(tokens) - start)/samples):
         sweep_values.append([len(tokens[0:start + j]), len(set(tokens[0:start + j]))])
-    <<curve-fitting>>
-else:
-    intercept = '-'
-    slope = '-'
+    popt, pcov = fit_values(log_log_func, sweep_values)
+    intercept = popt[0]
+    slope = popt[1]
+    perr = np.sqrt(np.diag(pcov))
+    std_error_intercept=perr[0]
+    std_error_slope=perr[1]
+
+if (language == 'zh' or language == 'zh-Hant'):
+    for j in xrange(0, len(zh_characters) - start, (len(zh_characters) - start)/samples):
+        sweep_values.append([len(zh_characters[0:start + j]), len(set(zh_characters[0:start + j]))])
+    zhpopt, zhpcov = fit_values(log_func, sweep_values)
+    zhintercept = zhpopt[0]
+    zhslope = zhpopt[1]
+    zhperr = np.sqrt(np.diag(zhpcov))
+    zhstd_error_intercept=zhperr[0]
+    zhstd_error_slope=zhperr[1]
 #+END_SRC
 
 #+RESULTS: lexical-sweep
 
-   #+NAME: curve-fitting
-   #+begin_src python :noweb yes :session python :exports code
-t =  list(zip(*sweep_values))
-xarr = t[0]
-yarr = t[1]
-
-a = 0
-b = 0
-
+Empirically, We have found
+#+NAME: fit-functions
+#+begin_src python :noweb yes :session python :exports code
 def log_func(x, a, b):
     return (a + b*log(x))
 
-popt, pcov = curve_fit(log_func,  xarr, yarr, (a,b))
-intercept = popt[0]
-slope = popt[1]
-perr = np.sqrt(np.diag(pcov))
-std_error_intercept=perr[0]
-std_error_slope=perr[1]
-print popt, pcov, perr
+def log_log_func(x, a, b):
+    return (math.e**(a + b*log(x)))
+#+end_src
+
+   #+NAME: curve-fitting
+   #+begin_src python :noweb yes :session python :exports code
+def fit_values(function, values):
+    t =  list(zip(*values))
+    xarr = t[0]
+    yarr = t[1]
+
+    a = 0
+    b = 0
+    return curve_fit(function,  xarr, yarr, (a,b))
+
+    popt, pcov = curve_fit(function,  xarr, yarr, (a,b))
+    intercept = popt[0]
+    slope = popt[1]
+    perr = np.sqrt(np.diag(pcov))
+    std_error_intercept=perr[0]
+    std_error_slope=perr[1]
       #+end_src
 
       #+RESULTS:
@@ -533,6 +558,7 @@ SELECT DISTINCT Language FROM main;
 | main              |
 | main_edited       |
 
+#+Name: database-insertion
 #+begin_src python :noweb yes :session python :exports code
 mydb = mysql.connector.connect(
   host="localhost",
@@ -557,7 +583,13 @@ try:
     std_error_slope DECIMAL(5,3),
     std_error_intercept DECIMAL(5,3),
     word_count DECIMAL(10,3),
-    lexical_variety DECIMAL(10,3),
+    unique_words DECIMAL(10,3),
+    zhslope DECIMAL(5,3),
+    zhintercept DECIMAL(5,3),
+    zhstd_error_slope DECIMAL(5,3),
+    zhstd_error_intercept DECIMAL(5,3),
+    character_count DECIMAL(10,3),
+    unique_characters DECIMAL(10,3),
     language VARCHAR(255),
     type VARCHAR(255),
     subject VARCHAR(255),
@@ -588,7 +620,13 @@ intercept,
 std_error_slope,
 std_error_intercept,
 word_count,
-lexical_variety,
+unique_words,
+zhslope,
+zhintercept,
+zhstd_error_slope,
+zhstd_error_intercept,
+character_count,
+unique_characters,
 language,
 type,
 subject,
@@ -628,7 +666,13 @@ intercept,
 std_error_slope,
 std_error_intercept,
 word_count,
-lexical_variety,
+unique_words,
+zhslope,
+zhintercept,
+zhstd_error_slope,
+zhstd_error_intercept,
+character_count,
+unique_characters,
 language,
 type,
 subject,
