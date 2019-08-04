@@ -103,17 +103,13 @@ import os
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
-import nltk
-import nltk.tokenize
-import codecs
 from scipy.optimize import curve_fit
 from scipy import log as log
 import numpy as np
-import pandas as pd
 import math
 import mysql.connector
-import polyglot
-from polyglot.text import Text, Word
+from polyglot.text import Text
+import subprocess, time
 #+END_SRC
 
 ** Epub reading
@@ -129,30 +125,32 @@ from polyglot.text import Text, Word
 i = 1
 <<fit-functions>>
 <<curve-fitting>>
+<<db-connection>>
+<<db-backup>>
 for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
         if ebook.endswith(".epub"):
             print ("Reading ebook " + ebook + ", number  " + str(i))
-            try:
-                book = epub.read_epub(dirpath + "/" + ebook)
-                print ("Getting epub metadata")
-                <<get-epub-metadata>>
-                print ("Extracting text from ebook")
-                <<text-extraction>>
-                print ("Detecting language")
-                <<language-detection>>
-                print (language)
-                print ("Performing tokenization")
-                <<tokenization>>
-                #<<lexical-sweep>>
-                #print ("Writing to file")
-                #<<log-writing>>
-                print ("Writing to database")
-                <<database-insertion>>
-                i += 1
-            except:
-                pass
-#mydb.close()
+            book = epub.read_epub(dirpath + "/" + ebook)
+            print ("Getting epub metadata")
+            <<get-epub-metadata>>
+            print ("Checking if book exists in database")
+            <<does-book-exist-db>>
+            print ("Extracting text from ebook")
+            <<text-extraction>>
+            print ("Detecting language")
+            <<language-detection>>
+            print (str(language_detected))
+            print ("Performing tokenization")
+            <<tokenization>>
+            <<lexical-sweep>>
+            #print ("Writing to file")
+            #<<log-writing>>
+            print ("Writing to database")
+            <<database-insertion>>
+            i += 1
+            runbackup("localhost", "root", "root");
+mydb.close()
  #+END_SRC
 
  #+RESULTS: epub-handling
@@ -177,7 +175,7 @@ cleantext += BeautifulSoup(raw_html, "lxml").text
 **** Language detection
 #+NAME: language-detection
 #+begin_src python :noweb yes :session python :exports code
-language=cleantext.language.code
+language_detected=Text(cleantext).language.code
 #+end_src
 
 *** Extracting metadata
@@ -232,9 +230,9 @@ try:
 except:
     contributor = '-'
 try:
-    creator = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+    author = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
 except:
-    creator = '-'
+    author = '-'
 try:
     title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
 except:
@@ -248,26 +246,28 @@ except:
     If the language is Chinese, appart from doing the tokenization, we also measure individual characters.
 #+NAME: tokenization
 #+BEGIN_SRC python :noweb yes :session python :exports code
-if (language == 'zh' or language == 'zh-Hant'):
+character_count = int()
+unique_characters = int()
+if (language_detected == 'zh' or language_detected == 'zh_Hant'):
     zh_characters = ''.join(c for c in cleantext if u'\u4e00' <= c <= u'\u9fff')
-tokens = cleantext.words
+    character_count = len(zh_characters)
+    unique_characters = len(set(zh_characters))
+tokens = Text(cleantext).words
 word_count = len(tokens)
 unique_words = len(set(tokens))
-character_count = len(zh_characters)
-unique_characters = len(set(zh_characters))
 #+END_SRC
 *** Log writing
 #+NAME: log-writing
 #+BEGIN_SRC python :noweb yes :session python :exports code
 with open("/home/rcl/readability-measure/test/"
-          + str(language)
+          + str(language_detected)
           + ".tsv", "w") as myfile:
     myfile.write(str(wordCount) + "\t"
                  + str(uniqueWords) + "\t"
                  #+ str(intercept) + "\t"
                  #+ str(slope) + "\t"
-                 + str(language) + "\t"
-                 + str(creator) + "\t"
+                 + str(language_detected) + "\t"
+                 + str(author) + "\t"
                  + str(title) + "\t"
                  + str(type) + "\t"
                  + str(subject) + "\t"
@@ -288,23 +288,30 @@ with open("/home/rcl/readability-measure/test/"
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
 start = 5000
-samples = 500
+#Temporary value for speed. Before it was 500
+samples = 10
 
 sweep_values = []
 if word_count > 10000:
     for j in xrange(0, len(tokens) - start, (len(tokens) - start)/samples):
-        sweep_values.append([len(tokens[0:start + j]), len(set(tokens[0:start + j]))])
-    popt, pcov = fit_values(log_log_func, sweep_values)
+        sweep_values.append([log(len(tokens[0:start + j])), log(len(set(tokens[0:start + j])))])
+    popt, pcov = fit_values(linear_func, sweep_values)
     intercept = popt[0]
     slope = popt[1]
     perr = np.sqrt(np.diag(pcov))
     std_error_intercept=perr[0]
     std_error_slope=perr[1]
+    zhintercept = int()
+    zhslope = int()
+    zhstd_error_intercept = int()
+    zhstd_error_slope = int()
 
-if (language == 'zh' or language == 'zh-Hant'):
+zhsweep_values = []
+if (language_detected == 'zh' or language_detected == 'zh_Hant'):
+    print "I am analizing characters???"
     for j in xrange(0, len(zh_characters) - start, (len(zh_characters) - start)/samples):
-        sweep_values.append([len(zh_characters[0:start + j]), len(set(zh_characters[0:start + j]))])
-    zhpopt, zhpcov = fit_values(log_func, sweep_values)
+        zhsweep_values.append([len(zh_characters[0:start + j]), len(set(zh_characters[0:start + j]))])
+    zhpopt, zhpcov = fit_values(log_func, zhsweep_values)
     zhintercept = zhpopt[0]
     zhslope = zhpopt[1]
     zhperr = np.sqrt(np.diag(zhpcov))
@@ -317,6 +324,9 @@ if (language == 'zh' or language == 'zh-Hant'):
 Empirically, We have found
 #+NAME: fit-functions
 #+begin_src python :noweb yes :session python :exports code
+def linear_func(x, a, b):
+    return (a + b*x)
+
 def log_func(x, a, b):
     return (a + b*log(x))
 
@@ -558,7 +568,7 @@ SELECT DISTINCT Language FROM main;
 | main              |
 | main_edited       |
 
-#+Name: database-insertion
+#+NAME: db-connection
 #+begin_src python :noweb yes :session python :exports code
 mydb = mysql.connector.connect(
   host="localhost",
@@ -566,30 +576,34 @@ mydb = mysql.connector.connect(
   passwd="root",
   charset='utf8'
 )
+#+end_src
 
+#+Name: database-insertion
+#+begin_src python :noweb yes :session python :exports code
 mycursor = mydb.cursor()
 
-try:
-    mycursor.execute("CREATE DATABASE library")
-except:
-    mycursor.execute("USE library;")
+print ("Gotten cursor")
 
-try:
-    mycursor.execute("""CREATE TABLE corpus (id INT AUTO_INCREMENT PRIMARY KEY,
+mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
+mycursor.execute("use library;")
+
+print ("Gotten library")
+
+mycursor.execute(""" CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255),
     author VARCHAR(255),
-    slope DECIMAL(5,3),
-    intercept DECIMAL(5,3),
-    std_error_slope DECIMAL(5,3),
-    std_error_intercept DECIMAL(5,3),
-    word_count DECIMAL(10,3),
-    unique_words DECIMAL(10,3),
-    zhslope DECIMAL(5,3),
-    zhintercept DECIMAL(5,3),
-    zhstd_error_slope DECIMAL(5,3),
-    zhstd_error_intercept DECIMAL(5,3),
-    character_count DECIMAL(10,3),
-    unique_characters DECIMAL(10,3),
+    slope DECIMAL(10,5),
+    intercept DECIMAL(10,5),
+    std_error_slope DECIMAL(10,5),
+    std_error_intercept DECIMAL(10,5),
+    word_count DECIMAL(20,1),
+    unique_words DECIMAL(20,1),
+    zhslope DECIMAL(10,5),
+    zhintercept DECIMAL(10,5),
+    zhstd_error_slope DECIMAL(10,5),
+    zhstd_error_intercept DECIMAL(10,5),
+    character_count DECIMAL(15,1),
+    unique_characters DECIMAL(15,1),
     language VARCHAR(255),
     type VARCHAR(255),
     subject VARCHAR(255),
@@ -601,17 +615,17 @@ try:
     format VARCHAR(255),
     description VARCHAR(510),
     contributor VARCHAR(255),
-    date VARCHAR(255))""")
-except:
-    pass
+    date VARCHAR(255)) """)
 
+print ("Check table exists")
 mycursor.execute("ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
 mycursor.execute("ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-
+print ("DB and table utf8")
 try:
     mycursor.execute("ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
 except:
     pass
+print ("Add constraint")
 
 sql = """INSERT IGNORE corpus (title,
 author,
@@ -641,12 +655,18 @@ contributor,
 date
 ) VALUES (%s,
 %s,
-%d,
-%d,
-%d,
-%d,
-%d,
-%d,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
+%s,
 %s,
 %s,
 %s,
@@ -661,19 +681,19 @@ date
 %s)"""
 val = (title,
 author,
-slope,
-intercept,
-std_error_slope,
-std_error_intercept,
-word_count,
-unique_words,
-zhslope,
-zhintercept,
-zhstd_error_slope,
-zhstd_error_intercept,
-character_count,
-unique_characters,
-language,
+float(slope),
+float(intercept),
+float(std_error_slope),
+float(std_error_intercept),
+float(word_count),
+float(unique_words),
+float(zhslope),
+float(zhintercept),
+float(zhstd_error_slope),
+float(zhstd_error_intercept),
+float(character_count),
+float(unique_characters),
+language_detected,
 type,
 subject,
 source,
@@ -686,21 +706,49 @@ description,
 contributor,
 date)
 
-try:
-    mycursor.execute(sql, val)
-    mydb.commit()
-    print("1 record inserted, ID:", mycursor.lastrowid)
-except:
-    pass
+mycursor.execute(sql, val)
+print ("executed insert")
+mydb.commit()
+print("1 record inserted, ID:", mycursor.lastrowid)
 #+end_src
 
 #+RESULTS:
 #+NAME: does-book-exist-db
+#+begin_src python :noweb yes :session python :exports code :results output
+mycursor = mydb.cursor()
+
+try:
+    mycursor.execute("CREATE DATABASE library")
+except:
+    mycursor.execute("USE library;")
+
+try:
+    query = 'SELECT * from corpus where title="' + str(title) + '" and author="' + str(author) + '"'
+    mycursor.execute(query)
+    myresult = mycursor.fetchall()
+    if mycursor.rowcount==1:
+        print ("Book " + str(title) + ", by " + str(author) + " already in database. Next.")
+        continue
+except:
+    pass
+#+end_src
+
+#+RESULTS: does-book-exist-db
+: ELECT * from corpus where title="opus" and author="paco"
+: 1
+: Book opus, by paco already in database. Next.
+#+NAME: db-backup
 #+begin_src python :noweb yes :session python :exports code
-query = "SELECT * from corpus where MemberID="
-tmp_query=query+loginID
-mycursor.execute(tmp_query)
-if cursor.rowcount==1:
-        ## Do your thing here
-        break
+def runbackup(hostname, mysql_user, mysql_pw):
+    try:
+        timestamp = str(int(time.time()))
+        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/readability-measure/library.sql", shell=True)
+        # Wait for completion
+        p.communicate()
+        # Check for errors
+        if(p.returncode != 0):
+            raise
+        print("Backup done for", hostname)
+    except:
+        print("Backup failed for", hostname)
 #+end_src
