@@ -32,7 +32,7 @@ done
 The following is the perfect script for downloading Chinese books from haodoo (好讀).
 It removes those in vertical format with -R "V*.epub".
   #+BEGIN_SRC shell :exports code :tangle chinese-corpus.sh
-wget -np -P ~/readability-measure/corpus/Chinese/ -r -A .epub -R "V*.epub" http://haodoo.net/PDB/
+wget -np -P $1 -r -A .epub -R "V*.epub" http://haodoo.net/PDB/
   #+END_SRC
 
 #+BEGIN_SRC shell :exports code
@@ -52,7 +52,7 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
    [[http://www.hindawi.
 org/][http://www.hindawi.org/]]
    #+BEGIN_SRC shell :exports code :tangle arabic-corpus.sh
-wget -np -P ~/readability-measure/corpus/Arabic/ -r -A .epub http://www.hindawi.org/books/
+wget -np -P $1 -r -A .epub http://www.hindawi.org/books/
    #+END_SRC
 ** Russian
    #+BEGIN_SRC shell :exports code
