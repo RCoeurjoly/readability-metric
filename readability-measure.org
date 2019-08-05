@@ -19,19 +19,19 @@
   We will use a literate programming approach using GNU/Emacs org mode to make our results as reproducible as possible.
 * Corpora
 ** French
-  #+BEGIN_SRC shell :exports code
+  #+BEGIN_SRC shell :exports code :tangle french-corpus.sh
 for i in {1..11000}
 do
-    wget -O $i.epub bibliothequenumerique.tv5monde.com/download/epub/$i
+    wget -O $1$i.epub bibliothequenumerique.tv5monde.com/download/epub/$i
+    find ${1} -name "*.epub" -size -88k -delete
 done
-find ~/readability-measure/corpus/bibliothequenumerique.tv5monde.com/download/epub/ -name "*.epub" -size -86k -delete
   #+END_SRC
 
   #+RESULTS:
 ** Chinese
 The following is the perfect script for downloading Chinese books from haodoo (好讀).
 It removes those in vertical format with -R "V*.epub".
-  #+BEGIN_SRC shell :exports code
+  #+BEGIN_SRC shell :exports code :tangle chinese-corpus.sh
 wget -np -P ~/readability-measure/corpus/Chinese/ -r -A .epub -R "V*.epub" http://haodoo.net/PDB/
   #+END_SRC
 
@@ -51,7 +51,7 @@ ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 ** Arabic
    [[http://www.hindawi.
 org/][http://www.hindawi.org/]]
-   #+BEGIN_SRC shell :exports code
+   #+BEGIN_SRC shell :exports code :tangle arabic-corpus.sh
 wget -np -P ~/readability-measure/corpus/Arabic/ -r -A .epub http://www.hindawi.org/books/
    #+END_SRC
 ** Russian
