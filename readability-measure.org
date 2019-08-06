@@ -734,7 +734,7 @@ except:
 #+begin_src python :noweb yes :session python :exports code
 def runbackup(hostname, mysql_user, mysql_pw):
     try:
-        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/readability-measure/library.sql", shell=True)
+        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/Metatron/library.sql", shell=True)
         # Wait for completion
         p.communicate()
         print("Backup done for", hostname)
