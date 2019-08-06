@@ -100,16 +100,16 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
 # -*- coding: utf-8 -*-
 import sys
 import os
+import math
+import subprocess
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
 from scipy import log as log
 import numpy as np
-import math
 import mysql.connector
 from polyglot.text import Text
-import subprocess, time
 #+END_SRC
 
 ** Epub reading
@@ -182,9 +182,9 @@ language_detected=Text(cleantext).language.code
 #+NAME: get-epub-metadata
 #+BEGIN_SRC python :noweb yes :session python :exports code
 try:
-    type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
+    epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
 except:
-    type = '-'
+    epubType = '-'
 try:
     subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
 except:
@@ -214,9 +214,9 @@ try:
 except:
     identifier = '-'
 try:
-    format = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
+    epubFormat = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
 except:
-    format = '-'
+    epubFormat = '-'
 try:
     description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
 except:
@@ -269,14 +269,14 @@ with open("/home/rcl/readability-measure/test/"
                  + str(language_detected) + "\t"
                  + str(author) + "\t"
                  + str(title) + "\t"
-                 + str(type) + "\t"
+                 + str(epubType) + "\t"
                  + str(subject) + "\t"
                  + str(source) + "\t"
                  + str(rights) + "\t"
                  + str(relation) + "\t"
                  + str(publisher) + "\t"
                  + str(identifier) + "\t"
-                 + str(format) + "\t"
+                 + str(epubFormat) + "\t"
                  # + str(description) + "\t"
                  + str(contributor) + "\t"
                  + str(date) + "\n")
@@ -344,13 +344,6 @@ def fit_values(function, values):
     a = 0
     b = 0
     return curve_fit(function,  xarr, yarr, (a,b))
-
-    popt, pcov = curve_fit(function,  xarr, yarr, (a,b))
-    intercept = popt[0]
-    slope = popt[1]
-    perr = np.sqrt(np.diag(pcov))
-    std_error_intercept=perr[0]
-    std_error_slope=perr[1]
       #+end_src
 
       #+RESULTS:
@@ -605,14 +598,14 @@ mycursor.execute(""" CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PR
     character_count DECIMAL(15,1),
     unique_characters DECIMAL(15,1),
     language VARCHAR(255),
-    type VARCHAR(255),
+    epubType VARCHAR(255),
     subject VARCHAR(255),
     source VARCHAR(255),
     rights VARCHAR(255),
     relation VARCHAR(255),
     publisher VARCHAR(255),
     identifier VARCHAR(255),
-    format VARCHAR(255),
+    epubFormat VARCHAR(255),
     description VARCHAR(510),
     contributor VARCHAR(255),
     date VARCHAR(255)) """)
@@ -642,14 +635,14 @@ zhstd_error_intercept,
 character_count,
 unique_characters,
 language,
-type,
+epubType,
 subject,
 source,
 rights,
 relation,
 publisher,
 identifier,
-format,
+epubFormat,
 description,
 contributor,
 date
@@ -694,14 +687,14 @@ float(zhstd_error_intercept),
 float(character_count),
 float(unique_characters),
 language_detected,
-type,
+epubType,
 subject,
 source,
 rights,
 relation,
 publisher,
 identifier,
-format,
+epubFormat,
 description,
 contributor,
 date)
@@ -741,14 +734,13 @@ except:
 #+begin_src python :noweb yes :session python :exports code
 def runbackup(hostname, mysql_user, mysql_pw):
     try:
-        timestamp = str(int(time.time()))
         p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/readability-measure/library.sql", shell=True)
         # Wait for completion
         p.communicate()
+        print("Backup done for", hostname)
+    except:
         # Check for errors
         if(p.returncode != 0):
             raise
-        print("Backup done for", hostname)
-    except:
         print("Backup failed for", hostname)
 #+end_src

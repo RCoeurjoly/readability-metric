@@ -2,16 +2,16 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+import math
+import subprocess
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
 from scipy import log as log
 import numpy as np
-import math
 import mysql.connector
 from polyglot.text import Text
-import subprocess, time
 # main function
 i = 1
 def linear_func(x, a, b):
@@ -30,13 +30,6 @@ def fit_values(function, values):
     a = 0
     b = 0
     return curve_fit(function,  xarr, yarr, (a,b))
-
-    popt, pcov = curve_fit(function,  xarr, yarr, (a,b))
-    intercept = popt[0]
-    slope = popt[1]
-    perr = np.sqrt(np.diag(pcov))
-    std_error_intercept=perr[0]
-    std_error_slope=perr[1]
 mydb = mysql.connector.connect(
   host="localhost",
   user="root",
@@ -45,15 +38,14 @@ mydb = mysql.connector.connect(
 )
 def runbackup(hostname, mysql_user, mysql_pw):
     try:
-        timestamp = str(int(time.time()))
         p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/readability-measure/library.sql", shell=True)
         # Wait for completion
         p.communicate()
+        print("Backup done for", hostname)
+    except:
         # Check for errors
         if(p.returncode != 0):
             raise
-        print("Backup done for", hostname)
-    except:
         print("Backup failed for", hostname)
 for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
@@ -62,9 +54,9 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             book = epub.read_epub(dirpath + "/" + ebook)
             print ("Getting epub metadata")
             try:
-                type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
+                epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
             except:
-                type = '-'
+                epubType = '-'
             try:
                 subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
             except:
@@ -94,9 +86,9 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             except:
                 identifier = '-'
             try:
-                format = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
+                epubFormat = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
             except:
-                format = '-'
+                epubFormat = '-'
             try:
                 description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
             except:
@@ -123,12 +115,12 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 date = '-'
             print ("Checking if book exists in database")
             mycursor = mydb.cursor()
-            
+
             try:
                 mycursor.execute("CREATE DATABASE library")
             except:
                 mycursor.execute("USE library;")
-            
+
             try:
                 query = 'SELECT * from corpus where title="' + str(title) + '" and author="' + str(author) + '"'
                 mycursor.execute(query)
@@ -160,7 +152,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             start = 5000
             #Temporary value for speed. Before it was 500
             samples = 10
-            
+
             sweep_values = []
             if word_count > 10000:
                 for j in xrange(0, len(tokens) - start, (len(tokens) - start)/samples):
@@ -175,7 +167,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 zhslope = int()
                 zhstd_error_intercept = int()
                 zhstd_error_slope = int()
-            
+
             zhsweep_values = []
             if (language_detected == 'zh' or language_detected == 'zh_Hant'):
                 print "I am analizing characters???"
@@ -198,27 +190,27 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             #                 + str(language_detected) + "\t"
             #                 + str(author) + "\t"
             #                 + str(title) + "\t"
-            #                 + str(type) + "\t"
+            #                 + str(epubType) + "\t"
             #                 + str(subject) + "\t"
             #                 + str(source) + "\t"
             #                 + str(rights) + "\t"
             #                 + str(relation) + "\t"
             #                 + str(publisher) + "\t"
             #                 + str(identifier) + "\t"
-            #                 + str(format) + "\t"
+            #                 + str(epubFormat) + "\t"
             #                 # + str(description) + "\t"
             #                 + str(contributor) + "\t"
             #                 + str(date) + "\n")
             print ("Writing to database")
             mycursor = mydb.cursor()
-            
+
             print ("Gotten cursor")
-            
+
             mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
             mycursor.execute("use library;")
-            
+
             print ("Gotten library")
-            
+
             mycursor.execute(""" CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
                 title VARCHAR(255),
                 author VARCHAR(255),
@@ -235,18 +227,18 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 character_count DECIMAL(15,1),
                 unique_characters DECIMAL(15,1),
                 language VARCHAR(255),
-                type VARCHAR(255),
+                epubType VARCHAR(255),
                 subject VARCHAR(255),
                 source VARCHAR(255),
                 rights VARCHAR(255),
                 relation VARCHAR(255),
                 publisher VARCHAR(255),
                 identifier VARCHAR(255),
-                format VARCHAR(255),
+                epubFormat VARCHAR(255),
                 description VARCHAR(510),
                 contributor VARCHAR(255),
                 date VARCHAR(255)) """)
-            
+
             print ("Check table exists")
             mycursor.execute("ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
             mycursor.execute("ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
@@ -256,7 +248,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             except:
                 pass
             print ("Add constraint")
-            
+
             sql = """INSERT IGNORE corpus (title,
             author,
             slope,
@@ -272,14 +264,14 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             character_count,
             unique_characters,
             language,
-            type,
+            epubType,
             subject,
             source,
             rights,
             relation,
             publisher,
             identifier,
-            format,
+            epubFormat,
             description,
             contributor,
             date
@@ -324,18 +316,18 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             float(character_count),
             float(unique_characters),
             language_detected,
-            type,
+            epubType,
             subject,
             source,
             rights,
             relation,
             publisher,
             identifier,
-            format,
+            epubFormat,
             description,
             contributor,
             date)
-            
+
             mycursor.execute(sql, val)
             print ("executed insert")
             mydb.commit()
