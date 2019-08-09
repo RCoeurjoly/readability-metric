@@ -38,7 +38,7 @@ mydb = mysql.connector.connect(
 )
 def runbackup(hostname, mysql_user, mysql_pw):
     try:
-        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/readability-measure/library.sql", shell=True)
+        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > ~/Metatron/library.sql", shell=True)
         # Wait for completion
         p.communicate()
         print("Backup done for", hostname)
@@ -115,12 +115,12 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 date = '-'
             print ("Checking if book exists in database")
             mycursor = mydb.cursor()
-
+            
             try:
                 mycursor.execute("CREATE DATABASE library")
             except:
                 mycursor.execute("USE library;")
-
+            
             try:
                 query = 'SELECT * from corpus where title="' + str(title) + '" and author="' + str(author) + '"'
                 mycursor.execute(query)
@@ -152,7 +152,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             start = 5000
             #Temporary value for speed. Before it was 500
             samples = 10
-
+            
             sweep_values = []
             if word_count > 10000:
                 for j in xrange(0, len(tokens) - start, (len(tokens) - start)/samples):
@@ -167,13 +167,13 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 zhslope = int()
                 zhstd_error_intercept = int()
                 zhstd_error_slope = int()
-
+            
             zhsweep_values = []
             if (language_detected == 'zh' or language_detected == 'zh_Hant'):
                 print "I am analizing characters???"
                 for j in xrange(0, len(zh_characters) - start, (len(zh_characters) - start)/samples):
-                    zhsweep_values.append([len(zh_characters[0:start + j]), len(set(zh_characters[0:start + j]))])
-                zhpopt, zhpcov = fit_values(log_func, zhsweep_values)
+                    zhsweep_values.append([len(zh_characters[0:start + j]), log(len(set(zh_characters[0:start + j])))])
+                zhpopt, zhpcov = fit_values(linear_func, zhsweep_values)
                 zhintercept = zhpopt[0]
                 zhslope = zhpopt[1]
                 zhperr = np.sqrt(np.diag(zhpcov))
@@ -203,14 +203,14 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             #                 + str(date) + "\n")
             print ("Writing to database")
             mycursor = mydb.cursor()
-
+            
             print ("Gotten cursor")
-
+            
             mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
             mycursor.execute("use library;")
-
+            
             print ("Gotten library")
-
+            
             mycursor.execute(""" CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
                 title VARCHAR(255),
                 author VARCHAR(255),
@@ -238,7 +238,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 description VARCHAR(510),
                 contributor VARCHAR(255),
                 date VARCHAR(255)) """)
-
+            
             print ("Check table exists")
             mycursor.execute("ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
             mycursor.execute("ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
@@ -248,7 +248,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             except:
                 pass
             print ("Add constraint")
-
+            
             sql = """INSERT IGNORE corpus (title,
             author,
             slope,
@@ -327,7 +327,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             description,
             contributor,
             date)
-
+            
             mycursor.execute(sql, val)
             print ("executed insert")
             mydb.commit()

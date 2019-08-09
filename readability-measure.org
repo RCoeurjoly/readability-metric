@@ -310,8 +310,8 @@ zhsweep_values = []
 if (language_detected == 'zh' or language_detected == 'zh_Hant'):
     print "I am analizing characters???"
     for j in xrange(0, len(zh_characters) - start, (len(zh_characters) - start)/samples):
-        zhsweep_values.append([len(zh_characters[0:start + j]), len(set(zh_characters[0:start + j]))])
-    zhpopt, zhpcov = fit_values(log_func, zhsweep_values)
+        zhsweep_values.append([len(zh_characters[0:start + j]), log(len(set(zh_characters[0:start + j])))])
+    zhpopt, zhpcov = fit_values(linear_func, zhsweep_values)
     zhintercept = zhpopt[0]
     zhslope = zhpopt[1]
     zhperr = np.sqrt(np.diag(zhpcov))
