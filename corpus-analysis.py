@@ -56,27 +56,27 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             try:
                 epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
             except:
-                epubType = '-'
+                epubType = ''
             try:
                 subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
             except:
-                subject = '-'
+                subject = ''
             try:
                 source = book.get_metadata('DC', 'source')[0][0].encode('utf-8')
             except:
-                source = '-'
+                source = ''
             try:
                 rights = book.get_metadata('DC', 'rights')[0][0].encode('utf-8')
             except:
-                rights = '-'
+                rights = ''
             try:
                 relation = book.get_metadata('DC', 'relation')[0][0].encode('utf-8')
             except:
-                relation = '-'
+                relation = ''
             try:
                 publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
             except:
-                publisher = '-'
+                publisher = ''
             #try:
             #    language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
             #except:
@@ -84,35 +84,35 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             try:
                 identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
             except:
-                identifier = '-'
+                identifier = ''
             try:
                 epubFormat = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
             except:
-                epubFormat = '-'
+                epubFormat = ''
             try:
                 description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
             except:
-                description = '-'
+                description = ''
             try:
                 coverage = book.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
             except:
-                coverage = '-'
+                coverage = ''
             try:
                 contributor = book.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
             except:
-                contributor = '-'
+                contributor = ''
             try:
                 author = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
             except:
-                author = '-'
+                author = ''
             try:
                 title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
             except:
-                title = '-'
+                title = ''
             try:
                 date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
             except:
-                date = '-'
+                date = ''
             print ("Checking if book exists in database")
             mycursor = mydb.cursor()
             
