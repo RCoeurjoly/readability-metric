@@ -138,7 +138,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                     cleantext += BeautifulSoup(raw_html, "lxml").text
             print ("Detecting language")
             language_detected=Text(cleantext).language.code
-            print (str(language_detected))
+            print ("Language detected: " + str(language_detected))
             print ("Performing tokenization")
             character_count = int()
             unique_characters = int()
@@ -149,6 +149,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             tokens = Text(cleantext).words
             word_count = len(tokens)
             unique_words = len(set(tokens))
+            print ("Lexical sweep")
             start = 5000
             #Temporary value for speed. Before it was 500
             samples = 10

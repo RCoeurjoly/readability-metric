@@ -140,9 +140,10 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             <<text-extraction>>
             print ("Detecting language")
             <<language-detection>>
-            print (str(language_detected))
+            print ("Language detected: " + str(language_detected))
             print ("Performing tokenization")
             <<tokenization>>
+            print ("Lexical sweep")
             <<lexical-sweep>>
             #print ("Writing to file")
             #<<log-writing>>
