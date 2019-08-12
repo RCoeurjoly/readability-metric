@@ -174,8 +174,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 std_error_slope = int()
             
             zhsweep_values = []
-            if (language_detected == 'zh' or language_detected == 'zh_Hant'):
-                print "I am analizing characters???"
+            if ((language_detected == 'zh' or language_detected == 'zh_Hant') and character_count > 10000):
                 for j in xrange(0, len(zh_characters) - start, (len(zh_characters) - start)/samples):
                     zhsweep_values.append([len(zh_characters[0:start + j]), log(len(set(zh_characters[0:start + j])))])
                 zhpopt, zhpcov = fit_values(linear_func, zhsweep_values)
@@ -337,7 +336,6 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             description,
             contributor,
             date)
-            
             mycursor.execute(sql, val)
             print ("executed insert")
             mydb.commit()
