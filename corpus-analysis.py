@@ -51,7 +51,10 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
         if ebook.endswith(".epub"):
             print ("Reading ebook " + ebook + ", number  " + str(i))
-            book = epub.read_epub(dirpath + "/" + ebook)
+            try:
+                book = epub.read_epub(dirpath + "/" + ebook)
+            except:
+                continue
             print ("Getting epub metadata")
             try:
                 epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
