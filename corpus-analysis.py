@@ -164,10 +164,11 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 perr = np.sqrt(np.diag(pcov))
                 std_error_intercept=perr[0]
                 std_error_slope=perr[1]
-                zhintercept = int()
-                zhslope = int()
-                zhstd_error_intercept = int()
-                zhstd_error_slope = int()
+            else:
+                intercept = int()
+                slope = int()
+                std_error_intercept = int()
+                std_error_slope = int()
             
             zhsweep_values = []
             if (language_detected == 'zh' or language_detected == 'zh_Hant'):
@@ -180,6 +181,11 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 zhperr = np.sqrt(np.diag(zhpcov))
                 zhstd_error_intercept=zhperr[0]
                 zhstd_error_slope=zhperr[1]
+            else:
+                zhintercept = int()
+                zhslope = int()
+                zhstd_error_intercept = int()
+                zhstd_error_slope = int()
             #print ("Writing to file")
             #with open("/home/rcl/readability-measure/test/"
             #          + str(language_detected)
