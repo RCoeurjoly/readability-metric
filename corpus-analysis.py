@@ -40,7 +40,7 @@ mydb = mysql.connector.connect(
 def runbackup(hostname, mysql_user, mysql_pw):
     try:
         home = expanduser("~")
-        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > " + str(home) + "/Metatron/library.sql", shell=True)
+        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > " + home + "/Metatron/library.sql", shell=True)
         # Wait for completion
         p.communicate()
         print("Backup done for", hostname)
