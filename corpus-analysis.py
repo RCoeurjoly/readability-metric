@@ -1,5 +1,6 @@
 # imports
 # -*- coding: utf-8 -*-
+import unicodedata
 import sys
 import os
 from os.path import expanduser
@@ -49,6 +50,41 @@ def runbackup(hostname, mysql_user, mysql_pw):
         if(p.returncode != 0):
             raise
         print("Backup failed for", hostname)
+printable = {
+#    'Cc',
+    'Cf',
+    'Cn',
+    'Co',
+    'Cs',
+    'LC',
+    'Ll',
+    'Lm',
+    'Lo',
+    'Lt',
+    'Lu',
+    'Mc',
+    'Me',
+    'Mn',
+    'Nd',
+    'Nl',
+    'No',
+    'Pc',
+    'Pd',
+    'Pe',
+    'Pf',
+    'Pi',
+    'Po',
+    'Ps',
+    'Sc',
+    'Sk',
+    'Sm',
+    'So',
+    'Zl',
+    'Zp',
+    'Zs'
+}
+def filter_non_printable(str):
+  return ''.join(c for c in str if unicodedata.category(c) in printable)
 for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
         if ebook.endswith(".epub"):
@@ -142,6 +178,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                     raw_html = item.get_content()
                     cleantext += BeautifulSoup(raw_html, "lxml").text
             print ("Detecting language")
+            cleantext = filter_non_printable(cleantext)
             language_detected=Text(cleantext).language.code
             print ("Language detected: " + str(language_detected))
             print ("Performing tokenization")

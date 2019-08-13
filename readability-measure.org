@@ -98,6 +98,7 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
 #+NAME: imports
 #+BEGIN_SRC python :session python :results none :exports code
 # -*- coding: utf-8 -*-
+import unicodedata
 import sys
 import os
 from os.path import expanduser
@@ -128,6 +129,7 @@ i = 1
 <<curve-fitting>>
 <<db-connection>>
 <<db-backup>>
+<<utf8-cleaning>>
 for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
         if ebook.endswith(".epub"):
@@ -177,9 +179,50 @@ cleantext += BeautifulSoup(raw_html, "lxml").text
 #+END_SRC
 
 #+RESULTS: html-cleaning
+**** Removing invalid utf-8
+
+#+NAME: utf8-cleaning
+#+BEGIN_SRC python :noweb yes :session python :exports code
+printable = {
+#    'Cc',
+    'Cf',
+    'Cn',
+    'Co',
+    'Cs',
+    'LC',
+    'Ll',
+    'Lm',
+    'Lo',
+    'Lt',
+    'Lu',
+    'Mc',
+    'Me',
+    'Mn',
+    'Nd',
+    'Nl',
+    'No',
+    'Pc',
+    'Pd',
+    'Pe',
+    'Pf',
+    'Pi',
+    'Po',
+    'Ps',
+    'Sc',
+    'Sk',
+    'Sm',
+    'So',
+    'Zl',
+    'Zp',
+    'Zs'
+}
+def filter_non_printable(str):
+  return ''.join(c for c in str if unicodedata.category(c) in printable)
+#+END_SRC
 **** Language detection
 #+NAME: language-detection
 #+begin_src python :noweb yes :session python :exports code
+cleantext = filter_non_printable(cleantext)
 language_detected=Text(cleantext).language.code
 #+end_src
 
