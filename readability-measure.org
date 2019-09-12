@@ -80,6 +80,7 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
   Try adding the results to a file suffixed with the language code.
   If that throws an exception, create the file and add the results
 #+BEGIN_SRC python :noweb yes :tangle corpus-analysis.py :exports code
+# -*- coding: utf-8 -*-
 # imports
 <<imports>>
 # main function
@@ -787,7 +788,7 @@ except:
 def runbackup(hostname, mysql_user, mysql_pw):
     try:
         home = expanduser("~")
-        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > " + home + "/Metatron/library.sql", shell=True)
+        p = subprocess.Popen("mysqldump -h" + hostname + " -u" + mysql_user + " -p'" + mysql_pw + "' --databases library > " + "/media/root/新加卷/Metatron/library.sql", shell=True)
         # Wait for completion
         p.communicate()
         print("Backup done for", hostname)
