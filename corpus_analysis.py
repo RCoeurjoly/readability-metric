@@ -227,8 +227,6 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             zhsweep_values = []
             log_behaviour_range = len(tokens) - log_behaviour_start
             log_step = log_behaviour_range/samples
-            zhlog_behaviour_range = len(zh_characters) - log_behaviour_start
-            zhlog_step = zhlog_behaviour_range/samples
             if word_count > 10000:
                 for sample_size in xrange(
                         log_behaviour_start,
@@ -244,6 +242,8 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 std_error_intercept = perr[0]
                 std_error_slope = perr[1]
                 if language_detected == 'zh' or language_detected == 'zh_Hant':
+                    zhlog_behaviour_range = len(zh_characters) - log_behaviour_start
+                    zhlog_step = zhlog_behaviour_range/samples
                     for sample_size in xrange(
                             log_behaviour_start,
                             zhlog_behaviour_range,
