@@ -121,94 +121,64 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             print "Getting epub metadata"
             try:
                 epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 epubType = ''
-                raise
             try:
                 subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 subject = ''
-                raise
             try:
                 source = book.get_metadata('DC', 'source')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 source = ''
-                raise
             try:
                 rights = book.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 rights = ''
-                raise
             try:
                 relation = book.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 relation = ''
-                raise
             try:
                 publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 publisher = ''
-                raise
             #try:
             #    language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
-            #except IndexError as ex:
-            #    print ex
-            #    raise
+            #except IndexError:
             #    language = 'empty'
             try:
                 identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 identifier = ''
-                raise
             try:
                 epubFormat = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 epubFormat = ''
-                raise
             try:
                 description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 description = ''
-                raise
             try:
                 coverage = book.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 coverage = ''
-                raise
             try:
                 contributor = book.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 contributor = ''
-                raise
             try:
                 author = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 author = ''
-                raise
             try:
                 title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 title = ''
-                raise
             try:
                 date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
-            except IndexError as ex:
-                print ex
+            except IndexError:
                 date = ''
-                raise
             print "Checking if book exists in database"
             mycursor = MY_DB.cursor()
             try:
