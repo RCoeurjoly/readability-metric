@@ -183,10 +183,9 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             mycursor = MY_DB.cursor()
             try:
                 mycursor.execute("CREATE DATABASE library")
-            except Exception as ex:
+            except mysql.connector.errors.DatabaseError as ex:
                 print ex
                 mycursor.execute("USE library;")
-                raise
             try:
                 query = ('SELECT * from corpus where title="' + str(title)
                          + '" and author="' + str(author) + '"')
