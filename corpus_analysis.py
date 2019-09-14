@@ -117,7 +117,6 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 book = epub.read_epub(dirpath + "/" + ebook)
             except Exception as ex:
                 print ex
-                raise
             print "Getting epub metadata"
             try:
                 epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
@@ -198,7 +197,6 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                     continue
             except Exception as ex:
                 print ex
-                raise
             print "Extracting text from ebook"
             cleantext = ""
             for item in book.get_items():
@@ -312,7 +310,6 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                     "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
             except Exception as ex:
                 print ex
-                raise
             print "Add constraint"
             sql = """INSERT IGNORE corpus (title,
             author,

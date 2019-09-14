@@ -142,7 +142,6 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
                 book = epub.read_epub(dirpath + "/" + ebook)
             except Exception as ex:
                 print ex
-                raise
             print "Getting epub metadata"
             <<get-epub-metadata>>
             print "Checking if book exists in database"
@@ -698,7 +697,6 @@ try:
         "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
 except Exception as ex:
     print ex
-    raise
 print "Add constraint"
 sql = """INSERT IGNORE corpus (title,
 author,
@@ -805,7 +803,6 @@ try:
         continue
 except Exception as ex:
     print ex
-    raise
 #+end_src
 
 #+RESULTS: does-book-exist-db
