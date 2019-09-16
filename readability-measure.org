@@ -134,6 +134,7 @@ i = 1
 <<db-connection>>
 <<db-backup>>
 <<utf8-cleaning>>
+<<get-epub-metadata>>
 for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
     for ebook in files:
         if ebook.endswith(".epub"):
@@ -143,7 +144,7 @@ for dirpath, dirnames, files in os.walk(str(sys.argv[1])):
             except Exception as ex:
                 print ex
             print "Getting epub metadata"
-            <<get-epub-metadata>>
+
             print "Checking if book exists in database"
             <<does-book-exist-db>>
             print "Extracting text from ebook"
@@ -163,21 +164,35 @@ MY_DB.close()
  #+END_SRC
 
  #+RESULTS: epub-handling
+*** Class book
+#+NAME: book-class
+#+BEGIN_SRC python :noweb yes :session python :exports code
+class book:
+    def __init__(self, epub):
+
+    #+end_src
+
 *** Extracting text from ebook
 #+NAME: text-extraction
 #+BEGIN_SRC python :noweb yes :session python :exports code
-cleantext = ""
-for item in book.get_items():
-    if item.get_type() == ebooklib.ITEM_DOCUMENT:
-        raw_html = item.get_content()
-        <<html-cleaning>>
+def extract_text(self, book):
+    '''
+    Extract all text from the book.
+    '''
+    cleantext = ""
+    for item in book.get_items():
+        if item.get_type() == ebooklib.ITEM_DOCUMENT:
+            raw_html = item.get_content()
+            <<html-filtering>>
+    cleantext = filter_non_printable(html_filtered)
+    self.text = cleantext
 #+END_SRC
 
 #+RESULTS: text-extraction
 **** Cleaning the html
-#+NAME: html-cleaning
+#+NAME: html-filtering
 #+BEGIN_SRC python :noweb yes :session python :exports code
-cleantext += BeautifulSoup(raw_html, "lxml").text
+html_filtered += BeautifulSoup(raw_html, "lxml").text
 #+END_SRC
 
 #+RESULTS: html-cleaning
@@ -218,7 +233,7 @@ PRINTABLE = {
     'Zp',
     'Zs'
 }
-def filter_non_printable(text):
+def cleaning_non_printable(text):
     '''
     Remove all non printable characters from string.
     '''
@@ -227,87 +242,95 @@ def filter_non_printable(text):
 **** Language detection
 #+NAME: language-detection
 #+begin_src python :noweb yes :session python :exports code
-cleantext = filter_non_printable(cleantext)
-language_detected = Text(cleantext).language.code
+def detect_language(self, cleantext):
+    '''
+    We don't trust the epub metadata regarding language tags
+    so we do our own language detection
+    '''
+    self.language = Text(cleantext).language.code
 #+end_src
 
-*** TODO Extracting metadata
+*** Extracting metadata
 #+NAME: get-epub-metadata
 #+BEGIN_SRC python :noweb yes :session python :exports code
-try:
-    epubType = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
-except IndexError:
-    epubType = ''
-try:
-    subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-except IndexError:
-    subject = ''
-try:
-    source = book.get_metadata('DC', 'source')[0][0].encode('utf-8')
-except IndexError:
-    source = ''
-try:
-    rights = book.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-except IndexError:
-    rights = ''
-try:
-    relation = book.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-except IndexError:
-    relation = ''
-try:
-    publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-except IndexError:
-    publisher = ''
-#try:
-#    language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
-#except IndexError:
-#    language = 'empty'
-try:
-    identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-except IndexError:
-    identifier = ''
-try:
-    epubFormat = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
-except IndexError:
-    epubFormat = ''
-try:
-    description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
-except IndexError:
-    description = ''
-try:
-    coverage = book.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-except IndexError:
-    coverage = ''
-try:
-    contributor = book.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-except IndexError:
-    contributor = ''
-try:
-    author = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-except IndexError:
-    author = ''
-try:
-    title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
-except IndexError:
-    title = ''
-try:
-    date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
-except IndexError:
-    date = ''
+def __init__(self, book):
+    try:
+        self.epub_type = book.get_metadata('DC', 'type')[0][0].encode('utf-8')
+    except IndexError:
+        self.epub_type = ''
+    try:
+        self.subject = book.get_metadata('DC', 'subject')[0][0].encode('utf-8')
+    except IndexError:
+        self.subject = ''
+    try:
+        self.source = book.get_metadata('DC', 'source')[0][0].encode('utf-8')
+    except IndexError:
+        self.source = ''
+    try:
+        self.rights = book.get_metadata('DC', 'rights')[0][0].encode('utf-8')
+    except IndexError:
+        self.rights = ''
+    try:
+        self.relation = book.get_metadata('DC', 'relation')[0][0].encode('utf-8')
+    except IndexError:
+        self.relation = ''
+    try:
+        self.publisher = book.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
+    except IndexError:
+        self.publisher = ''
+    #try:
+    #    self.language = book.get_metadata('DC', 'language')[0][0].encode('utf-8')
+    #except IndexError:
+    #    self.language = 'empty'
+    try:
+        self.identifier = book.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
+    except IndexError:
+        self.identifier = ''
+    try:
+        self.epubFormat = book.get_metadata('DC', 'format')[0][0].encode('utf-8')
+    except IndexError:
+        self.epubFormat = ''
+    try:
+        self.description = book.get_metadata('DC', 'description')[0][0].encode('utf-8')
+    except IndexError:
+        self.description = ''
+    try:
+        self.coverage = book.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
+    except IndexError:
+        self.coverage = ''
+    try:
+        self.contributor = book.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
+    except IndexError:
+        self.contributor = ''
+    try:
+        self.author = book.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+    except IndexError:
+        self.author = ''
+    try:
+        self.title = book.get_metadata('DC', 'title')[0][0].encode('utf-8')
+    except IndexError:
+        self.title = ''
+    try:
+        self.date = book.get_metadata('DC', 'date')[0][0].encode('utf-8')
+    except IndexError:
+        self.date = ''
 #+END_SRC
 *** Tokenization
     If the language is Chinese, appart from doing the tokenization, we also measure individual characters.
 #+NAME: tokenization
 #+BEGIN_SRC python :noweb yes :session python :exports code
-character_count = int()
-unique_characters = int()
-if language_detected == 'zh' or language_detected == 'zh_Hant':
-    zh_characters = ''.join(c for c in cleantext if u'\u4e00' <= c <= u'\u9fff')
-    character_count = len(zh_characters)
-    unique_characters = len(set(zh_characters))
-tokens = Text(cleantext).words
-word_count = len(tokens)
-unique_words = len(set(tokens))
+def tokenize(self, book):
+    if self.language == 'zh' or self.language == 'zh_Hant':
+        self.zh_characters = ''.join(character for character in self.cleantext if u'\u4e00' <= c <= u'\u9fff')
+        self.character_count = len(zh_characters)
+        self.unique_characters = len(set(zh_characters))
+    else:
+        self.zh_characters = str()
+        self.character_count = int()
+        self.unique_characters = int()
+    self.tokens = Text(cleantext).words
+    self.word_count = len(tokens)
+    self.unique_words = len(set(tokens))
 #+END_SRC
 *** Log writing
 #+NAME: log-writing
@@ -322,7 +345,7 @@ with open("/home/rcl/readability-measure/test/"
                  + str(language_detected) + "\t"
                  + str(author) + "\t"
                  + str(title) + "\t"
-                 + str(epubType) + "\t"
+                 + str(epub_type) + "\t"
                  + str(subject) + "\t"
                  + str(source) + "\t"
                  + str(rights) + "\t"
@@ -340,53 +363,32 @@ with open("/home/rcl/readability-measure/test/"
    Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
-#Temporary value for speed. Before it was 500
-samples = 10
-log_behaviour_start = 5000
-sweep_values = []
-zhsweep_values = []
-log_behaviour_range = len(tokens) - log_behaviour_start
-log_step = log_behaviour_range/samples
-if word_count > 10000:
-    for sample_size in xrange(
-            log_behaviour_start,
-            log_behaviour_range,
-            log_step):
-        x_sample = log(len(tokens[0:sample_size]))
-        y_sample = log(len(set(tokens[0:sample_size])))
-        sweep_values.append([x_sample, y_sample])
-    popt, pcov = fit_values(linear_func, sweep_values)
-    book_intercept = popt[0]
-    book_slope = popt[1]
+def lexical_sweep(text, samples = 10):
+    #Temporary value for speed. Before it was 500
+    log_behaviour_start = 5000
+    sweep_values = []
+    log_behaviour_range = len(text) - log_behaviour_start
+    log_step = log_behaviour_range/samples
+    if len(text) > 10000:
+        for sample_size in xrange(
+                log_behaviour_start,
+                log_behaviour_range,
+                log_step):
+            x_sample = log(len(text[0:sample_size]))
+            y_sample = log(len(set(text[0:sample_size])))
+            sweep_values.append([x_sample, y_sample])
+        return sweep_values
+    else:
+        return False
+
+def curve_fit(function, sweep_values):
+    popt, pcov = fit_values(function, sweep_values)
+    intercept = popt[0]
+    slope = popt[1]
     perr = np.sqrt(np.diag(pcov))
     std_error_intercept = perr[0]
     std_error_slope = perr[1]
-    if language_detected == 'zh' or language_detected == 'zh_Hant':
-        zhlog_behaviour_range = len(zh_characters) - log_behaviour_start
-        zhlog_step = zhlog_behaviour_range/samples
-        for sample_size in xrange(
-                log_behaviour_start,
-                zhlog_behaviour_range,
-                zhlog_step):
-            x_sample = len(zh_characters[0:sample_size])
-            y_sample = log(len(set(zh_characters[0:sample_size])))
-            zhsweep_values.append([x_sample, y_sample])
-        zhpopt, zhpcov = fit_values(linear_func, zhsweep_values)
-        zhintercept = zhpopt[0]
-        zhslope = zhpopt[1]
-        zhperr = np.sqrt(np.diag(zhpcov))
-        zhstd_error_intercept = zhperr[0]
-        zhstd_error_slope = zhperr[1]
-    else:
-        zhintercept = int()
-        zhslope = int()
-        zhstd_error_intercept = int()
-        zhstd_error_slope = int()
-else:
-    book_intercept = int()
-    book_slope = int()
-    std_error_intercept = int()
-    std_error_slope = int()
+    return intercept, slope, std_error_intercept, std_error_slope
 #+END_SRC
 
 #+RESULTS: lexical-sweep
@@ -653,145 +655,143 @@ MY_DB = mysql.connector.connect(
 
 #+Name: database-insertion
 #+begin_src python :noweb yes :session python :exports code
-mycursor = MY_DB.cursor()
-print "Gotten cursor"
-mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
-mycursor.execute("use library;")
-print "Gotten library"
-mycursor.execute(
-    """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255),
-    author VARCHAR(255),
-    slope DECIMAL(10,5),
-    intercept DECIMAL(10,5),
-    std_error_slope DECIMAL(10,5),
-    std_error_intercept DECIMAL(10,5),
-    word_count DECIMAL(20,1),
-    unique_words DECIMAL(20,1),
-    zhslope DECIMAL(10,5),
-    zhintercept DECIMAL(10,5),
-    zhstd_error_slope DECIMAL(10,5),
-    zhstd_error_intercept DECIMAL(10,5),
-    character_count DECIMAL(15,1),
-    unique_characters DECIMAL(15,1),
-    language VARCHAR(255),
-    epubType VARCHAR(255),
-    subject VARCHAR(255),
-    source VARCHAR(255),
-    rights VARCHAR(255),
-    relation VARCHAR(255),
-    publisher VARCHAR(255),
-    identifier VARCHAR(255),
-    epubFormat VARCHAR(255),
-    description VARCHAR(510),
-    contributor VARCHAR(255),
-    date VARCHAR(255)) """)
-print "Check table exists"
-mycursor.execute(
-    "ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-mycursor.execute(
-    "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-print "DB and table utf8"
-try:
-    mycursor.execute(
-        "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
-except Exception as ex:
-    print ex
-print "Add constraint"
-sql = """INSERT IGNORE corpus (title,
-author,
-slope,
-intercept,
-std_error_slope,
-std_error_intercept,
-word_count,
-unique_words,
-zhslope,
-zhintercept,
-zhstd_error_slope,
-zhstd_error_intercept,
-character_count,
-unique_characters,
-language,
-epubType,
-subject,
-source,
-rights,
-relation,
-publisher,
-identifier,
-epubFormat,
-description,
-contributor,
-date
-) VALUES (%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s,
-%s)"""
-val = (title,
-       author,
-       float(book_slope),
-       float(book_intercept),
-       float(std_error_slope),
-       float(std_error_intercept),
-       float(word_count),
-       float(unique_words),
-       float(zhslope),
-       float(zhintercept),
-       float(zhstd_error_slope),
-       float(zhstd_error_intercept),
-       float(character_count),
-       float(unique_characters),
-       language_detected,
-       epubType,
-       subject,
-       source,
-       rights,
-       relation,
-       publisher,
-       identifier,
-       epubFormat,
-       description,
-       contributor,
-       date)
-mycursor.execute(sql, val)
-print "executed insert"
-MY_DB.commit()
-print("1 record inserted, ID:", mycursor.lastrowid)
+def insert_book_db(book, ):
+    mycursor = MY_DB.cursor()
+    mycursor.execute("use library;")
+    sql = """INSERT IGNORE corpus (title,
+    author,
+    slope,
+    intercept,
+    std_error_slope,
+    std_error_intercept,
+    word_count,
+    unique_words,
+    zhslope,
+    zhintercept,
+    zhstd_error_slope,
+    zhstd_error_intercept,
+    character_count,
+    unique_characters,
+    language,
+    epub_type,
+    subject,
+    source,
+    rights,
+    relation,
+    publisher,
+    identifier,
+    epubFormat,
+    description,
+    contributor,
+    date
+    ) VALUES (%s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s,
+    %s)"""
+    val = (title,
+           author,
+           float(book_slope),
+           float(book_intercept),
+           float(std_error_slope),
+           float(std_error_intercept),
+           float(word_count),
+           float(unique_words),
+           float(zhslope),
+           float(zhintercept),
+           float(zhstd_error_slope),
+           float(zhstd_error_intercept),
+           float(character_count),
+           float(unique_characters),
+           language_detected,
+           epub_type,
+           subject,
+           source,
+           rights,
+           relation,
+           publisher,
+           identifier,
+           epub_format,
+           description,
+           contributor,
+           date)
+    mycursor.execute(sql, val)
+    print "executed insert"
+    MY_DB.commit()
+    print("1 record inserted, ID:", mycursor.lastrowid)
 #+end_src
 
 #+RESULTS:
+#+Name: database-creation
+#+begin_src python :noweb yes :session python :exports code
+def create_database():
+    mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
+    mycursor.execute(
+        """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255),
+        author VARCHAR(255),
+        slope DECIMAL(10,5),
+        intercept DECIMAL(10,5),
+        std_error_slope DECIMAL(10,5),
+        std_error_intercept DECIMAL(10,5),
+        word_count DECIMAL(20,1),
+        unique_words DECIMAL(20,1),
+        zhslope DECIMAL(10,5),
+        zhintercept DECIMAL(10,5),
+        zhstd_error_slope DECIMAL(10,5),
+        zhstd_error_intercept DECIMAL(10,5),
+        character_count DECIMAL(15,1),
+        unique_characters DECIMAL(15,1),
+        language VARCHAR(255),
+        epub_type VARCHAR(255),
+        subject VARCHAR(255),
+        source VARCHAR(255),
+        rights VARCHAR(255),
+        relation VARCHAR(255),
+        publisher VARCHAR(255),
+        identifier VARCHAR(255),
+        epubFormat VARCHAR(255),
+        description VARCHAR(510),
+        contributor VARCHAR(255),
+        date VARCHAR(255)) """)
+    mycursor.execute(
+        "ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+    mycursor.execute(
+        "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+    try:
+        mycursor.execute(
+            "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
+    except Exception as ex:
+        print ex
+#+end_src
+
 #+NAME: does-book-exist-db
 #+begin_src python :noweb yes :session python :exports code :results output
-mycursor = MY_DB.cursor()
-try:
-    mycursor.execute("CREATE DATABASE library")
-except mysql.connector.errors.DatabaseError as ex:
-    print ex
+def is_book_in_db(title, author):
+    mycursor = MY_DB.cursor()
+    mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
     mycursor.execute("USE library;")
-try:
     query = ('SELECT * from corpus where title="' + str(title)
              + '" and author="' + str(author) + '"')
     mycursor.execute(query)
@@ -800,9 +800,9 @@ try:
         print ("Book " + str(title)
                + ", by " + str(author)
                + " already in database. Next.")
-        continue
-except Exception as ex:
-    print ex
+        return true
+    else:
+        return false
 #+end_src
 
 #+RESULTS: does-book-exist-db
