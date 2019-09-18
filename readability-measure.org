@@ -250,57 +250,57 @@ def __init__(self, epub_file):
     # There is a lot of metadata but it is repetitive and non problematic.
     try:
         self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.epub_type = ''
     try:
         self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.subject = ''
     try:
         self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.source = ''
     try:
         self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.rights = ''
     try:
         self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.relation = ''
     try:
         self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.publisher = ''
     #try:
     #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
-    #except IndexError:
+    #except (IndexError, AttributeError):
     #    self.language = 'empty'
     try:
         self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.identifier = ''
     try:
         self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.epub_format = ''
     try:
         self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.description = ''
     try:
         self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.coverage = ''
     try:
         self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.contributor = ''
     self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
     self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
     try:
         self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
-    except IndexError:
+    except (IndexError, AttributeError):
         self.date = ''
     self.language = str()
     self.zh_characters = str()
