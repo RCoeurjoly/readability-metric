@@ -160,6 +160,21 @@ class Book(object):
         so we do our own language detection
         '''
         self.language = Text(self.text).language.code
+    def release_text(self):
+        '''
+        Release text.
+        '''
+        self.text = str()
+    def release_zh_characters(self):
+        '''
+        Release Chinese characters.
+        '''
+        self.zh_characters = str()
+    def release_tokens(self):
+        '''
+        Release tokens.
+        '''
+        self.tokens = str()
 # Functions
 def clean_non_printable(text):
     '''
@@ -433,10 +448,13 @@ def analyze_books(argv):
                 print "Performing tokenization"
                 my_book.tokenize()
                 print "Lexical sweeps"
+                my_book.release_text()
                 sweep_values = lexical_sweep(my_book.tokens, samples=10)
                 word_curve_fit = extract_fit_parameters(log_func, sweep_values)
+                my_book.release_tokens()
                 sweep_values = lexical_sweep(my_book.zh_characters, samples=10)
                 zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
+                my_book.release_zh_characters()
                 sweep_values = []
                 print "Writing to database"
                 insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
