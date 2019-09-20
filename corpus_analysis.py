@@ -429,6 +429,10 @@ def analyze_books(argv):
     for dirpath, __, files in os.walk(str(argv[1])):
         for ebook in files:
             if ebook.endswith(".epub"):
+                ebook_bytes = os.path.getsize(dirpath + "/" + ebook)
+                if ebook_bytes >= 700000:
+                    print "Ebook too big. Next."
+                    continue
                 print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
                 try:
                     epub_file = epub.read_epub(dirpath + "/" + ebook)
