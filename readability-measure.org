@@ -502,13 +502,22 @@ def analyze_books(argv):
                 print "Performing tokenization"
                 my_book.tokenize()
                 print "Lexical sweeps"
-                my_book.release_text()
+                #my_book.release_text()
                 sweep_values = lexical_sweep(my_book.tokens, samples=10)
-                word_curve_fit = extract_fit_parameters(log_func, sweep_values)
-                my_book.release_tokens()
+                try:
+                    word_curve_fit = extract_fit_parameters(log_func, sweep_values)
+                except TypeError as ex:
+                    print ex
+                    continue
+                #my_book.release_tokens()
                 sweep_values = lexical_sweep(my_book.zh_characters, samples=10)
+                try:
+                    zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
+                except TypeError as ex:
+                    print ex
+                    continue
                 zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
-                my_book.release_zh_characters()
+                #my_book.release_zh_characters()
                 sweep_values = []
                 print "Writing to database"
                 insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
