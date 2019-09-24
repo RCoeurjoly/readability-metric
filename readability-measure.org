@@ -394,22 +394,28 @@ with open("/home/rcl/readability-measure/test/"
    Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def lexical_sweep(text, samples=10):
+def lexical_sweep(text, samples=10, log_x=False, log_y=False):
     '''
     Lexical sweep.
     '''
-    #Temporary value for speed. Before it was 500
-    log_behaviour_start = 5000
+    #log_behaviour_start = 5000
+    log_behaviour_start = 10
     sweep_values = []
     log_behaviour_range = len(text) - log_behaviour_start
     log_step = log_behaviour_range/samples
-    if len(text) > 10000:
+    if len(text) > 10000 and samples>2:
         for sample_size in xrange(
                 log_behaviour_start,
                 log_behaviour_range,
                 log_step):
-            x_sample = log(len(text[0:sample_size]))
-            y_sample = log(len(set(text[0:sample_size])))
+            if log_x:
+                x_sample = log(len(text[0:sample_size]))
+            else:
+                x_sample = len(text[0:sample_size])
+            if log_y:
+                y_sample = log(len(set(text[0:sample_size])))
+            else:
+                y_sample = len(set(text[0:sample_size]))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
     return False
@@ -425,13 +431,14 @@ def extract_fit_parameters(function, sweep_values):
         array = list(zip(*sweep_values))
         xarr = array[0]
         yarr = array[1]
-
-        popt, pcov = curve_fit(function, xarr, yarr)
-        intercept = popt[0]
-        slope = popt[1]
+        initial_a = 0
+        initial_b = 0
+        popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
+        slope = popt[0]
+        intercept = popt[1]
         perr = np.sqrt(np.diag(pcov))
-        std_error_intercept = perr[0]
-        std_error_slope = perr[1]
+        std_error_slope = perr[0]
+        std_error_intercept = perr[1]
         return {'intercept': intercept,
                 'slope': slope,
                 'std_error_intercept': std_error_intercept,
@@ -503,20 +510,25 @@ def analyze_books(argv):
                 my_book.tokenize()
                 print "Lexical sweeps"
                 #my_book.release_text()
-                sweep_values = lexical_sweep(my_book.tokens, samples=10)
+                sweep_values = lexical_sweep(my_book.tokens,
+                                             samples=10,
+                                             log_x=True,
+                                             log_y=True)
                 try:
                     word_curve_fit = extract_fit_parameters(log_func, sweep_values)
                 except TypeError as ex:
                     print ex
                     continue
                 #my_book.release_tokens()
-                sweep_values = lexical_sweep(my_book.zh_characters, samples=10)
+                sweep_values = lexical_sweep(my_book.zh_characters,
+                                             samples=10,
+                                             log_x=True,
+                                             log_y=True)
                 try:
                     zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
                 except TypeError as ex:
                     print ex
                     continue
-                zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
                 #my_book.release_zh_characters()
                 sweep_values = []
                 print "Writing to database"
@@ -532,6 +544,124 @@ if __name__ == '__main__':
  #+END_SRC
 
  #+RESULTS: epub-handling
+
+* Testing
+#+BEGIN_SRC python :noweb yes :tangle test_corpus_analysis.py :exports code
+# -*- coding: utf-8 -*-
+'''
+Unit testing for the corpus analysis
+'''
+import unittest
+import json
+from ebooklib import epub
+from corpus_analysis import Book, lexical_sweep, extract_fit_parameters, linear_func
+
+class MyTest(unittest.TestCase):
+    '''
+    Class
+    '''
+    def test_metadata(self):
+        '''
+        Given a certain book, test metadata
+        '''
+        with open("benchmarks.json", "r") as test_cases:
+            benchmarks = json.load(test_cases)
+            for benchmark in benchmarks['books']:
+                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
+                my_book = Book(epub_file)
+                self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
+                self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
+                self.assertEqual(my_book.epub_type, benchmark['epub_type'].encode('utf-8'))
+                self.assertEqual(my_book.subject, benchmark['subject'].encode('utf-8'))
+                self.assertEqual(my_book.rights, benchmark['rights'].encode('utf-8'))
+                self.assertEqual(my_book.relation, benchmark['relation'].encode('utf-8'))
+                self.assertEqual(my_book.publisher, benchmark['publisher'].encode('utf-8'))
+                self.assertEqual(my_book.identifier, benchmark['identifier'].encode('utf-8'))
+                self.assertEqual(my_book.epub_format, benchmark['epub_format'].encode('utf-8'))
+                self.assertEqual(my_book.description, benchmark['description'].encode('utf-8'))
+                self.assertEqual(my_book.contributor, benchmark['contributor'].encode('utf-8'))
+                self.assertEqual(my_book.date, benchmark['date'].encode('utf-8'))
+
+    def test_language(self):
+        '''
+        Given a certain book, test language
+        '''
+        with open("benchmarks.json", "r") as test_cases:
+            benchmarks = json.load(test_cases)
+            for benchmark in benchmarks['books']:
+                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
+                my_book = Book(epub_file)
+                my_book.extract_text(epub_file)
+                my_book.detect_language()
+                self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
+
+    def test_tokens(self):
+        '''
+        Given a certain book, test language
+        '''
+        with open("benchmarks.json", "r") as test_cases:
+            benchmarks = json.load(test_cases)
+            for benchmark in benchmarks['books']:
+                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
+                my_book = Book(epub_file)
+                my_book.extract_text(epub_file)
+                my_book.detect_language()
+                my_book.tokenize()
+                self.assertEqual(my_book.word_count, benchmark['word_count'])
+                self.assertEqual(my_book.unique_words, benchmark['unique_words'])
+                self.assertEqual(my_book.character_count, benchmark['zh_character_count'])
+                self.assertEqual(my_book.unique_characters, benchmark['unique_zh_characters'])
+
+    def test_fit(self):
+        '''
+        Given a certain book, test language
+        '''
+        with open("benchmarks.json", "r") as test_cases:
+            benchmarks = json.load(test_cases)
+            for benchmark in benchmarks['books']:
+                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
+                my_book = Book(epub_file)
+                my_book.extract_text(epub_file)
+                my_book.detect_language()
+                my_book.tokenize()
+                sweep_values = lexical_sweep(my_book.tokens, samples=10, log_x=True, log_y=True)
+                word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+                sweep_values = lexical_sweep(my_book.zh_characters, samples=10, log_x=True)
+                zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+                self.assertEqual(float(word_curve_fit['slope']),
+                                 benchmark['word_curve_fit_slope'])
+                self.assertEqual(float(word_curve_fit['intercept']),
+                                 benchmark['word_curve_fit_intercept'])
+                self.assertEqual(float(word_curve_fit['std_error_slope']),
+                                 benchmark['word_curve_fit_std_error_slope'])
+                self.assertEqual(float(word_curve_fit['std_error_intercept']),
+                                 benchmark['word_curve_fit_std_error_intercept'])
+                self.assertEqual(float(zh_character_curve_fit['slope']),
+                                 benchmark['zh_character_curve_fit_slope'])
+                self.assertEqual(float(zh_character_curve_fit['intercept']),
+                                 benchmark['zh_character_curve_fit_intercept'])
+                self.assertEqual(float(zh_character_curve_fit['std_error_slope']),
+                                 benchmark['zh_character_curve_fit_std_error_slope'])
+                self.assertEqual(float(zh_character_curve_fit['std_error_intercept']),
+                                 benchmark['zh_character_curve_fit_std_error_intercept'])
+
+def main():
+    '''
+    Main
+    '''
+    unittest.main()
+
+if __name__ == "__main__":
+    main()
+  #+end_src
+
+  #+RESULTS:
+
+** TypeError: Improper input: N=2 must not exceed M=1
+   sweep_values = lexical_sweep(my_book.tokens, samples=1)
+
+   sweep_values = lexical_sweep(my_book.tokens, samples=2)
+   OptimizeWarning: Covariance of the parameters could not be estimated
 
 * SQL DB
 #+header: :engine mysql
@@ -944,3 +1074,30 @@ print analysis[90][5]
   #+RESULTS:
   : 古龍
   : 東野圭吾
+#+begin_src python :results output
+import json
+data_in = {
+    "president": {
+        "name": "Roland",
+        "species": "Human"
+    }
+}
+
+with open("benchmarks.json", "r") as test_cases:
+    benchmarks = json.load(test_cases)
+    for book in benchmarks['books']:
+        print book['title']
+#+end_src
+
+#+RESULTS:
+: Las conversaciones privadas de Hitler
+2.302585092994046, 2.302585092994046
+10.336600252573104, 8.760296220470051
+11.029585298139098, 9.23561817916045
+11.434996355407028, 9.505320746909074
+11.722651401343093, 9.68700923909068
+11.945778736397259, 9.829033366611181
+12.12808948220509, 9.933434628904081
+12.282232439827844, 10.025218341107275
+12.415758040759854, 10.107937461403084
+12.533536571743316, 10.176715668017758

@@ -190,13 +190,14 @@ def extract_fit_parameters(function, sweep_values):
         array = list(zip(*sweep_values))
         xarr = array[0]
         yarr = array[1]
-
-        popt, pcov = curve_fit(function, xarr, yarr)
-        intercept = popt[0]
-        slope = popt[1]
+        initial_a = 0
+        initial_b = 0
+        popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
+        slope = popt[0]
+        intercept = popt[1]
         perr = np.sqrt(np.diag(pcov))
-        std_error_intercept = perr[0]
-        std_error_slope = perr[1]
+        std_error_slope = perr[0]
+        std_error_intercept = perr[1]
         return {'intercept': intercept,
                 'slope': slope,
                 'std_error_intercept': std_error_intercept,
@@ -205,22 +206,28 @@ def extract_fit_parameters(function, sweep_values):
             'slope': int(),
             'std_error_intercept': int(),
             'std_error_slope': int()}
-def lexical_sweep(text, samples=10):
+def lexical_sweep(text, samples=10, log_x=False, log_y=False):
     '''
     Lexical sweep.
     '''
-    #Temporary value for speed. Before it was 500
-    log_behaviour_start = 5000
+    #log_behaviour_start = 5000
+    log_behaviour_start = 10
     sweep_values = []
     log_behaviour_range = len(text) - log_behaviour_start
     log_step = log_behaviour_range/samples
-    if len(text) > 10000:
+    if len(text) > 10000 and samples>2:
         for sample_size in xrange(
                 log_behaviour_start,
                 log_behaviour_range,
                 log_step):
-            x_sample = log(len(text[0:sample_size]))
-            y_sample = log(len(set(text[0:sample_size])))
+            if log_x:
+                x_sample = log(len(text[0:sample_size]))
+            else:
+                x_sample = len(text[0:sample_size])
+            if log_y:
+                y_sample = log(len(set(text[0:sample_size])))
+            else:
+                y_sample = len(set(text[0:sample_size]))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
     return False
@@ -453,20 +460,25 @@ def analyze_books(argv):
                 my_book.tokenize()
                 print "Lexical sweeps"
                 #my_book.release_text()
-                sweep_values = lexical_sweep(my_book.tokens, samples=10)
+                sweep_values = lexical_sweep(my_book.tokens,
+                                             samples=10,
+                                             log_x=True,
+                                             log_y=True)
                 try:
                     word_curve_fit = extract_fit_parameters(log_func, sweep_values)
                 except TypeError as ex:
                     print ex
                     continue
                 #my_book.release_tokens()
-                sweep_values = lexical_sweep(my_book.zh_characters, samples=10)
+                sweep_values = lexical_sweep(my_book.zh_characters,
+                                             samples=10,
+                                             log_x=True,
+                                             log_y=True)
                 try:
                     zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
                 except TypeError as ex:
                     print ex
                     continue
-                zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
                 #my_book.release_zh_characters()
                 sweep_values = []
                 print "Writing to database"
