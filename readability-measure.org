@@ -403,7 +403,7 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
     sweep_values = []
     log_behaviour_range = len(text) - log_behaviour_start
     log_step = log_behaviour_range/samples
-    if len(text) > 10000 and samples>2:
+    if len(text) > 10000 and samples > 2:
         for sample_size in xrange(
                 log_behaviour_start,
                 log_behaviour_range,
@@ -476,6 +476,56 @@ def log_log_func(variable, coefficient, intercept):
 ** Main
  #+NAME: main
  #+BEGIN_SRC python :noweb yes :session python :exports code
+def analyse_book(ebook, check_db=False):
+    '''
+    Analyse individual book.
+    You can insert into db or into json afterwards
+    '''
+    if ebook.endswith(".epub"):
+        ebook_bytes = os.path.getsize(ebook)
+        if ebook_bytes >= 800000 and check_db:
+            print "Ebook too big. Next."
+            return False
+        try:
+            epub_file = epub.read_epub(ebook)
+        except Exception as ex:
+            print ex
+            return False
+        print "Getting epub metadata"
+        my_book = Book(epub_file)
+        if check_db:
+            print "Checking if book exists in database"
+            if is_book_in_db(my_book.title, my_book.author):
+                return False
+        print "Extracting text from ebook"
+        my_book.extract_text(epub_file)
+        print "Detecting language"
+        my_book.detect_language()
+        print "Language detected: " + str(my_book.language)
+        print "Performing tokenization"
+        my_book.tokenize()
+        print "Lexical sweeps"
+        sweep_values = lexical_sweep(my_book.tokens,
+                                     samples=10,
+                                     log_x=True,
+                                     log_y=True)
+        try:
+            word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+        except TypeError as ex:
+            print ex
+            return False
+        sweep_values = lexical_sweep(my_book.zh_characters,
+                                     samples=10,
+                                     log_x=True,
+                                     log_y=False)
+        try:
+            zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+        except TypeError as ex:
+            print ex
+            return False
+        return my_book, word_curve_fit, zh_character_curve_fit
+    return False
+
 def analyze_books(argv):
     '''
     Main function: open and read all epub files in directory.
@@ -485,59 +535,22 @@ def analyze_books(argv):
     books_analyzed = 1
     for dirpath, __, files in os.walk(str(argv[1])):
         for ebook in files:
-            if ebook.endswith(".epub"):
-                ebook_bytes = os.path.getsize(dirpath + "/" + ebook)
-                if ebook_bytes >= 700000:
-                    print "Ebook too big. Next."
-                    continue
-                print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-                try:
-                    epub_file = epub.read_epub(dirpath + "/" + ebook)
-                except Exception as ex:
-                    print ex
-                    continue
-                print "Getting epub metadata"
-                my_book = Book(epub_file)
-                print "Checking if book exists in database"
-                if is_book_in_db(my_book.title, my_book.author):
-                    continue
-                print "Extracting text from ebook"
-                my_book.extract_text(epub_file)
-                print "Detecting language"
-                my_book.detect_language()
-                print "Language detected: " + str(my_book.language)
-                print "Performing tokenization"
-                my_book.tokenize()
-                print "Lexical sweeps"
-                #my_book.release_text()
-                sweep_values = lexical_sweep(my_book.tokens,
-                                             samples=10,
-                                             log_x=True,
-                                             log_y=True)
-                try:
-                    word_curve_fit = extract_fit_parameters(log_func, sweep_values)
-                except TypeError as ex:
-                    print ex
-                    continue
-                #my_book.release_tokens()
-                sweep_values = lexical_sweep(my_book.zh_characters,
-                                             samples=10,
-                                             log_x=True,
-                                             log_y=True)
-                try:
-                    zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
-                except TypeError as ex:
-                    print ex
-                    continue
-                #my_book.release_zh_characters()
-                sweep_values = []
-                print "Writing to database"
-                insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
-                books_analyzed += 1
-                if len(argv) == 3:
-                    runbackup("localhost", "root", "root", str(argv[2]))
-                else:
-                    runbackup("localhost", "root", "root")
+            try:
+                my_book, word_curve_fit, zh_character_curve_fit = analyse_book(dirpath +
+                                                                               '/' +
+                                                                               ebook)
+            except TypeError as ex:
+                print ex
+                continue
+            print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
+            books_analyzed += 1
+            print "Writing to database"
+            insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
+            books_analyzed += 1
+            if len(argv) == 3:
+                runbackup("localhost", "root", "root", str(argv[2]))
+            else:
+                runbackup("localhost", "root", "root")
     MY_DB.close()
 if __name__ == '__main__':
     analyze_books(sys.argv)
@@ -581,6 +594,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.description, benchmark['description'].encode('utf-8'))
                 self.assertEqual(my_book.contributor, benchmark['contributor'].encode('utf-8'))
                 self.assertEqual(my_book.date, benchmark['date'].encode('utf-8'))
+                print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
     def test_language(self):
         '''
@@ -594,6 +608,7 @@ class MyTest(unittest.TestCase):
                 my_book.extract_text(epub_file)
                 my_book.detect_language()
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
+                print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
     def test_tokens(self):
         '''
@@ -611,6 +626,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.unique_words, benchmark['unique_words'])
                 self.assertEqual(my_book.character_count, benchmark['zh_character_count'])
                 self.assertEqual(my_book.unique_characters, benchmark['unique_zh_characters'])
+                print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
     def test_fit(self):
         '''
@@ -644,7 +660,7 @@ class MyTest(unittest.TestCase):
                                  benchmark['zh_character_curve_fit_std_error_slope'])
                 self.assertEqual(float(zh_character_curve_fit['std_error_intercept']),
                                  benchmark['zh_character_curve_fit_std_error_intercept'])
-
+                print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 def main():
     '''
     Main
@@ -656,6 +672,68 @@ if __name__ == "__main__":
   #+end_src
 
   #+RESULTS:
+
+** Creating benchmark
+
+#+BEGIN_SRC python :noweb yes :tangle create_benchmark.py :exports code
+'''
+Create benchmark based on epubs
+'''
+
+import json
+import os
+from corpus_analysis import analyse_book
+
+DATA = {}
+DATA['books'] = []
+
+for dirpath, __, files in os.walk('test'):
+    for ebook in files:
+        try:
+            my_book, word_curve_fit, zh_character_curve_fit = analyse_book(dirpath
+                                                                           + '/'
+                                                                           + ebook)
+        except TypeError as ex:
+            print ex
+            continue
+        DATA['books'].append({"path": dirpath + "/" + ebook,
+                              "author": my_book.author,
+                              "title": my_book.title,
+                              "epub_type": my_book.epub_type,
+                              "subject": my_book.subject,
+                              "rights": my_book.rights,
+                              "relation": my_book.relation,
+                              "publisher": my_book.publisher,
+                              "identifier": my_book.identifier,
+                              "epub_format": my_book.epub_format,
+                              "description": my_book.description,
+                              "contributor": my_book.contributor,
+                              "date": my_book.date,
+                              "language": my_book.language,
+                              "word_count": my_book.word_count,
+                              "unique_words": my_book.unique_words,
+                              "zh_character_count": my_book.character_count,
+                              "unique_zh_characters": my_book.unique_characters,
+                              "word_curve_fit_slope":
+                              word_curve_fit['slope'],
+                              "word_curve_fit_intercept":
+                              word_curve_fit['intercept'],
+                              "word_curve_fit_std_error_slope":
+                              word_curve_fit['std_error_slope'],
+                              "word_curve_fit_std_error_intercept":
+                              word_curve_fit['std_error_intercept'],
+                              "zh_character_curve_fit_slope":
+                              zh_character_curve_fit['slope'],
+                              "zh_character_curve_fit_intercept":
+                              zh_character_curve_fit['intercept'],
+                              "zh_character_curve_fit_std_error_slope":
+                              zh_character_curve_fit['std_error_slope'],
+                              "zh_character_curve_fit_std_error_intercept":
+                              zh_character_curve_fit['std_error_intercept']})
+
+with open('benchmarks.json', 'w') as outfile:
+    json.dump(DATA, outfile)
+#+end_src
 
 ** TypeError: Improper input: N=2 must not exceed M=1
    sweep_values = lexical_sweep(my_book.tokens, samples=1)
@@ -1076,28 +1154,77 @@ print analysis[90][5]
   : 東野圭吾
 #+begin_src python :results output
 import json
-data_in = {
-    "president": {
-        "name": "Roland",
-        "species": "Human"
-    }
-}
 
 with open("benchmarks.json", "r") as test_cases:
     benchmarks = json.load(test_cases)
-    for book in benchmarks['books']:
-        print book['title']
+    for benchmark in benchmarks['books']:
+        print benchmark['path'].encode('utf-8')
+        print benchmark['author'].encode('utf-8')
+        print benchmark['title'].encode('utf-8')
+        print benchmark['epub_type'].encode('utf-8')
+        print benchmark['word_curve_fit_slope']
+        print benchmark['zh_character_curve_fit_slope']
+        print benchmark['word_count']
+        print benchmark['unique_words']
 #+end_src
 
+
 #+RESULTS:
-: Las conversaciones privadas de Hitler
-2.302585092994046, 2.302585092994046
-10.336600252573104, 8.760296220470051
-11.029585298139098, 9.23561817916045
-11.434996355407028, 9.505320746909074
-11.722651401343093, 9.68700923909068
-11.945778736397259, 9.829033366611181
-12.12808948220509, 9.933434628904081
-12.282232439827844, 10.025218341107275
-12.415758040759854, 10.107937461403084
-12.533536571743316, 10.176715668017758
+#+begin_example
+test/pg23306.epub
+René Descartes
+Meditationes de prima philosophia
+
+0.803463675366
+0
+28207
+6085
+test/pg21000.epub
+Johann Wolfgang von Goethe
+Faust: Eine Tragödie
+
+0.831561333002
+0
+36751
+9293
+test/pg24264.epub
+Xueqin Cao
+紅樓夢
+
+0.69794400829
+373.751162525
+662992
+21113
+test/pg6099.epub
+Charles Baudelaire
+Les Fleurs du Mal
+
+0.834087803731
+0
+31525
+8177
+test/pg2000.epub
+Miguel de Cervantes Saavedra
+Don Quijote
+
+0.740139477978
+0
+449755
+27284
+test/pg521.epub
+Daniel Defoe
+The Life and Adventures of Robinson Crusoe
+
+0.708038727522
+0
+141776
+7643
+test/Las conversaciones privadas de Hitler - Adolf Hitler.epub
+Adolf Hitler
+Las conversaciones privadas de Hitler
+
+0.774981251067
+0
+308320
+28381
+#+end_example

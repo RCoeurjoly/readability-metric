@@ -32,6 +32,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.description, benchmark['description'].encode('utf-8'))
                 self.assertEqual(my_book.contributor, benchmark['contributor'].encode('utf-8'))
                 self.assertEqual(my_book.date, benchmark['date'].encode('utf-8'))
+                print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
     def test_language(self):
         '''
@@ -45,6 +46,7 @@ class MyTest(unittest.TestCase):
                 my_book.extract_text(epub_file)
                 my_book.detect_language()
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
+                print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
     def test_tokens(self):
         '''
@@ -62,6 +64,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.unique_words, benchmark['unique_words'])
                 self.assertEqual(my_book.character_count, benchmark['zh_character_count'])
                 self.assertEqual(my_book.unique_characters, benchmark['unique_zh_characters'])
+                print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
     def test_fit(self):
         '''
@@ -95,7 +98,7 @@ class MyTest(unittest.TestCase):
                                  benchmark['zh_character_curve_fit_std_error_slope'])
                 self.assertEqual(float(zh_character_curve_fit['std_error_intercept']),
                                  benchmark['zh_character_curve_fit_std_error_intercept'])
-
+                print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 def main():
     '''
     Main

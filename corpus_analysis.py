@@ -215,7 +215,7 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
     sweep_values = []
     log_behaviour_range = len(text) - log_behaviour_start
     log_step = log_behaviour_range/samples
-    if len(text) > 10000 and samples>2:
+    if len(text) > 10000 and samples > 2:
         for sample_size in xrange(
                 log_behaviour_start,
                 log_behaviour_range,
@@ -426,6 +426,56 @@ def runbackup(hostname,
         print ex
         print("Backup failed for", hostname)
 # Main function
+def analyse_book(ebook, check_db=False):
+    '''
+    Analyse individual book.
+    You can insert into db or into json afterwards
+    '''
+    if ebook.endswith(".epub"):
+        ebook_bytes = os.path.getsize(ebook)
+        if ebook_bytes >= 800000 and check_db:
+            print "Ebook too big. Next."
+            return False
+        try:
+            epub_file = epub.read_epub(ebook)
+        except Exception as ex:
+            print ex
+            return False
+        print "Getting epub metadata"
+        my_book = Book(epub_file)
+        if check_db:
+            print "Checking if book exists in database"
+            if is_book_in_db(my_book.title, my_book.author):
+                return False
+        print "Extracting text from ebook"
+        my_book.extract_text(epub_file)
+        print "Detecting language"
+        my_book.detect_language()
+        print "Language detected: " + str(my_book.language)
+        print "Performing tokenization"
+        my_book.tokenize()
+        print "Lexical sweeps"
+        sweep_values = lexical_sweep(my_book.tokens,
+                                     samples=10,
+                                     log_x=True,
+                                     log_y=True)
+        try:
+            word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+        except TypeError as ex:
+            print ex
+            return False
+        sweep_values = lexical_sweep(my_book.zh_characters,
+                                     samples=10,
+                                     log_x=True,
+                                     log_y=False)
+        try:
+            zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+        except TypeError as ex:
+            print ex
+            return False
+        return my_book, word_curve_fit, zh_character_curve_fit
+    return False
+
 def analyze_books(argv):
     '''
     Main function: open and read all epub files in directory.
@@ -435,59 +485,22 @@ def analyze_books(argv):
     books_analyzed = 1
     for dirpath, __, files in os.walk(str(argv[1])):
         for ebook in files:
-            if ebook.endswith(".epub"):
-                ebook_bytes = os.path.getsize(dirpath + "/" + ebook)
-                if ebook_bytes >= 700000:
-                    print "Ebook too big. Next."
-                    continue
-                print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-                try:
-                    epub_file = epub.read_epub(dirpath + "/" + ebook)
-                except Exception as ex:
-                    print ex
-                    continue
-                print "Getting epub metadata"
-                my_book = Book(epub_file)
-                print "Checking if book exists in database"
-                if is_book_in_db(my_book.title, my_book.author):
-                    continue
-                print "Extracting text from ebook"
-                my_book.extract_text(epub_file)
-                print "Detecting language"
-                my_book.detect_language()
-                print "Language detected: " + str(my_book.language)
-                print "Performing tokenization"
-                my_book.tokenize()
-                print "Lexical sweeps"
-                #my_book.release_text()
-                sweep_values = lexical_sweep(my_book.tokens,
-                                             samples=10,
-                                             log_x=True,
-                                             log_y=True)
-                try:
-                    word_curve_fit = extract_fit_parameters(log_func, sweep_values)
-                except TypeError as ex:
-                    print ex
-                    continue
-                #my_book.release_tokens()
-                sweep_values = lexical_sweep(my_book.zh_characters,
-                                             samples=10,
-                                             log_x=True,
-                                             log_y=True)
-                try:
-                    zh_character_curve_fit = extract_fit_parameters(log_log_func, sweep_values)
-                except TypeError as ex:
-                    print ex
-                    continue
-                #my_book.release_zh_characters()
-                sweep_values = []
-                print "Writing to database"
-                insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
-                books_analyzed += 1
-                if len(argv) == 3:
-                    runbackup("localhost", "root", "root", str(argv[2]))
-                else:
-                    runbackup("localhost", "root", "root")
+            try:
+                my_book, word_curve_fit, zh_character_curve_fit = analyse_book(dirpath +
+                                                                               '/' +
+                                                                               ebook)
+            except TypeError as ex:
+                print ex
+                continue
+            print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
+            books_analyzed += 1
+            print "Writing to database"
+            insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
+            books_analyzed += 1
+            if len(argv) == 3:
+                runbackup("localhost", "root", "root", str(argv[2]))
+            else:
+                runbackup("localhost", "root", "root")
     MY_DB.close()
 if __name__ == '__main__':
     analyze_books(sys.argv)
