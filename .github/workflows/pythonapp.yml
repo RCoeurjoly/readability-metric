@@ -27,4 +27,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
+        bash download_benchmark.sh
         python test_corpus_analysis.py
