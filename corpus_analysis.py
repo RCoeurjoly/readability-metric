@@ -58,12 +58,14 @@ class Book(object):
     '''
     # pylint: disable=too-many-instance-attributes
     # There is a lot of metadata but it is repetitive and non problematic.
-    def __init__(self, epub_file):
+    def __init__(self, epub_filename):
         '''
         Init.
         '''
         # pylint: disable=too-many-statements
         # There is a lot of metadata but it is repetitive and non problematic.
+        self.filename = epub_filename
+        epub_file = epub.read_epub(epub_filename)
         try:
             self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
         except (IndexError, AttributeError):
@@ -130,6 +132,8 @@ class Book(object):
         '''
         Tokenization.
         '''
+        if len(self.tokens) == 0:
+            self.extract_text()
         if self.language == 'zh' or self.language == 'zh_Hant':
             self.zh_characters = ''.join(character for character in self.text
                                          if u'\u4e00' <= character <= u'\u9fff')
@@ -142,10 +146,11 @@ class Book(object):
         self.tokens = Text(self.text).words
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
-    def extract_text(self, book):
+    def extract_text(self):
         '''
         Extract all text from the book.
         '''
+        book = epub.read_epub(self.filename)
         cleantext = ""
         html_filtered = ""
         for item in book.get_items():
@@ -159,6 +164,8 @@ class Book(object):
         We don't trust the epub metadata regarding language tags
         so we do our own language detection
         '''
+        if len(self.tokens) == 0:
+            self.extract_text()
         self.language = Text(self.text).language.code
     def release_text(self):
         '''
@@ -210,15 +217,14 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
     '''
     Lexical sweep.
     '''
-    #log_behaviour_start = 5000
-    log_behaviour_start = 10
+    log_behaviour_start = 5000
     sweep_values = []
     log_behaviour_range = len(text) - log_behaviour_start
-    log_step = log_behaviour_range/samples
-    if len(text) > 10000 and samples > 2:
+    log_step = log_behaviour_range/(samples - 1)
+    if len(text) > 10000 and samples >= 2:
         for sample_size in xrange(
                 log_behaviour_start,
-                log_behaviour_range,
+                len(text) - 1,
                 log_step):
             if log_x:
                 x_sample = log(len(text[0:sample_size]))
@@ -426,7 +432,7 @@ def runbackup(hostname,
         print ex
         print("Backup failed for", hostname)
 # Main function
-def analyse_book(ebook, check_db=False):
+def analyse_book(ebook, samples=10, check_db=False):
     '''
     Analyse individual book.
     You can insert into db or into json afterwards
@@ -437,24 +443,17 @@ def analyse_book(ebook, check_db=False):
             print "Ebook too big. Next."
             return False
         try:
-            epub_file = epub.read_epub(ebook)
+            my_book = Book(ebook)
         except Exception as ex:
             print ex
             return False
-        print "Getting epub metadata"
-        my_book = Book(epub_file)
         if check_db:
             print "Checking if book exists in database"
             if is_book_in_db(my_book.title, my_book.author):
                 return False
-        print "Extracting text from ebook"
-        my_book.extract_text(epub_file)
-        print "Detecting language"
+        my_book.extract_text()
         my_book.detect_language()
-        print "Language detected: " + str(my_book.language)
-        print "Performing tokenization"
         my_book.tokenize()
-        print "Lexical sweeps"
         sweep_values = lexical_sweep(my_book.tokens,
                                      samples=10,
                                      log_x=True,

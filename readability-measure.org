@@ -1,17 +1,31 @@
-#+TITLE: Readability measure based on analysis of lexical variety
-
+#+TITLE: Readability metric based on analysis of lexical variety
 #+AUTHOR: Roland Coeurjoly
 #+EMAIL: rolandcoeurjoly@gmail.com
-#+EXPORT_FILE_NAME: readability_measure
-
-* Introduction
+#+Date:
+#+OPTIONS: ^:nil toc:nil H:4
+#+LATEX_HEADER: \usepackage{tikz}
+#+LATEX_HEADER: \usepackage{attrib}
+#+LATEX_HEADER: \Plainauthor{Roland Coeurjoly}
+#+LATEX_HEADER: \author{Roland Coeurjoly}
+#+LATEX_HEADER: \title{Readability metric based on analysis of lexical variety}
+#+LATEX_HEADER: \Shorttitle{Pending}
+#+LATEX_HEADER: \Keywords{readability metric, readability test, readability, formula, comprehensible input, extensive reading, vocabulary, literate programming, reproducible research, emacs}
+#+LATEX_HEADER: \Address{Pending}
+#+LATEX_HEADER: \Abstract{We present a readability metric, capable of being applied to books written in multiple languages and easy to compute, therefore lending itself to be applied to large corpora composed of thousands of books. It uses length of text (measured in words) versus unique words to compute the rate at which the author introduces new vocabulary in a certain book. This rate can then be used to rank the book with respect to others. This readability metric is only }
+#+LaTeX_CLASS: jss
+#+STARTUP: oddeven
+* Summary
+  The main idea of this paper is that the rate at which an author introduces new words into a book can function as a readability measure.
+  This rate takes into account the number of unique words and the length in words of a book.
+  So, in a simplified case, between two books with the same length, the one with fewer unique words is easiest to read, all other factors being equal.
+  This readability measure is valuable to people who, having a large corpus of books, want to find those that are easiest to read in comparison with the rest of the corpus.
+  In other words, helps you find comprehensible input.
   In this project we are going to develop a readability measure based on corpus analysis.
 ** What is a readability measure?
    A readability measure is a set of equations used to quantify how easy a given text is to read.
    In this project, we focus on long texts, with more that 2000 words or tokens. This is in contrast with other readability measures which analyze sentences.
 * Literature review
   Alexander Arguelles proposes the following:
-
 * Approach
   We are going to approach the problem from a corpus linguistics perspective. This means that we are going to analyze a lot of books and take some general conclusions about them.
   The basic premise used in this project is that vocabulary and readability are correlated negatively, i.e., the larger the vocabulary, the more difficult to understand.
@@ -66,74 +80,89 @@ wget -np -P ~/readability-measure/corpus/Russian/ -r -A .epub https://www.rulit.
    #+BEGIN_SRC shell :exports code
 wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimages"
    #+END_SRC
-* Analysis
-** Noweb
-     #+PROPERTY: session *python*
-  #+PROPERTY: cache yes
-  #+PROPERTY: results none
-  In a first instance, we want to extract the following information from each ebook:
-  - Author
-  - Title
-  - Length in number of words
-  - Number of unique words
-  It would be nice to create a file for each language (according to metadata).
-  The logic would be the following:
-  Try adding the results to a file suffixed with the language code.
-  If that throws an exception, create the file and add the results
-#+BEGIN_SRC python :noweb yes :tangle corpus_analysis.py :exports code
-# -*- coding: utf-8 -*-
-'''
-corpus-analysis.py: readability measure for epub ebooks.
-Version 1.0
-Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
-'''
-# Imports
-<<imports>>
-# Constants
-<<printable-set>>
-# Book Class
-<<book-class>>
-# Functions
-<<utf8-cleaning>>
-## Curve fitting functions
-<<curve-fit>>
-<<lexical-sweep>>
-<<fit-functions>>
-## Database functions
-<<db-connection>>
-<<database-insertion>>
-<<database-creation>>
-<<is-book-in-db>>
-<<db-backup>>
-# Main function
-<<main>>
+* Library
+** Lexical sweep and curve fitting
+   We can only do the curve fitting with books longer than 10000 tokens. This is because, to begin with, books don't exhibit logarithmic behavior until they reach around 4 thousand words.
+   Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
+#+NAME: lexical-sweep
+#+BEGIN_SRC python :noweb yes :session python :exports code
+def lexical_sweep(text, samples=10, log_x=False, log_y=False):
+    '''
+    Lexical sweep.
+    '''
+    log_behaviour_start = 5000
+    sweep_values = []
+    log_behaviour_range = len(text) - log_behaviour_start
+    log_step = log_behaviour_range/(samples - 1)
+    if len(text) > 10000 and samples >= 2:
+        for sample_size in xrange(
+                log_behaviour_start,
+                len(text) - 1,
+                log_step):
+            if log_x:
+                x_sample = log(len(text[0:sample_size]))
+            else:
+                x_sample = len(text[0:sample_size])
+            if log_y:
+                y_sample = log(len(set(text[0:sample_size])))
+            else:
+                y_sample = len(set(text[0:sample_size]))
+            sweep_values.append([x_sample, y_sample])
+        return sweep_values
+    return False
 #+END_SRC
 
-#+RESULTS:
-: None
-
-** Imports
-   We import some packages to make our life easier:
-   - ebooklib: to process epubs
-   - BeautifulSoup: to process the html in epubs
-   - langdetect to detect language. We use this because based on experience epub language tags are not very reliable
-   - ntlk: to do natural language processing
-#+NAME: imports
-#+BEGIN_SRC python :session python :results none :exports code
-import unicodedata
-import sys
-import os
-import math
-import subprocess
-import ebooklib
-from ebooklib import epub
-from bs4 import BeautifulSoup
-from scipy.optimize import curve_fit
-from scipy import log as log
-import numpy as np
-import mysql.connector
-from polyglot.text import Text
+#+NAME: curve-fit
+#+BEGIN_SRC python :noweb yes :session python :exports code
+def extract_fit_parameters(function, sweep_values):
+    '''
+    Curve fit.
+    '''
+    if sweep_values:
+        array = list(zip(*sweep_values))
+        xarr = array[0]
+        yarr = array[1]
+        initial_a = 0
+        initial_b = 0
+        popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
+        slope = popt[0]
+        intercept = popt[1]
+        perr = np.sqrt(np.diag(pcov))
+        std_error_slope = perr[0]
+        std_error_intercept = perr[1]
+        return {'intercept': intercept,
+                'slope': slope,
+                'std_error_intercept': std_error_intercept,
+                'std_error_slope': std_error_slope}
+    return {'intercept': int(),
+            'slope': int(),
+            'std_error_intercept': int(),
+            'std_error_slope': int()}
 #+END_SRC
+
+#+RESULTS: lexical-sweep
+
+Empirically, We have found
+#+NAME: fit-functions
+#+begin_src python :noweb yes :session python :exports code
+def linear_func(variable, slope, y_intercept):
+    '''
+    Linear model.
+    '''
+    return slope*variable + y_intercept
+
+def log_func(variable, coefficient, x_intercept):
+    '''
+    Logarithmic model.
+    '''
+    return coefficient*log(variable) + x_intercept
+
+def log_log_func(variable, coefficient, intercept):
+    '''
+    Log-log model.
+    '''
+    return math.e**(coefficient*log(variable) + intercept)
+#+end_src
 
 ** Ebook handling
 
@@ -160,13 +189,89 @@ class Book(object):
     <<release-tokens>>
     #+end_src
 
+*** Extracting metadata
+    We don't extract all text in constructor because it is expensive and we want to check first if it exists in database.
+#+NAME: constructor
+#+BEGIN_SRC python :noweb yes :session python :exports code
+def __init__(self, epub_filename):
+    '''
+    Init.
+    '''
+    # pylint: disable=too-many-statements
+    # There is a lot of metadata but it is repetitive and non problematic.
+    self.filename = epub_filename
+    epub_file = epub.read_epub(epub_filename)
+    try:
+        self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.epub_type = ''
+    try:
+        self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.subject = ''
+    try:
+        self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.source = ''
+    try:
+        self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.rights = ''
+    try:
+        self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.relation = ''
+    try:
+        self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.publisher = ''
+    #try:
+    #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
+    #except (IndexError, AttributeError):
+    #    self.language = 'empty'
+    try:
+        self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.identifier = ''
+    try:
+        self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.epub_format = ''
+    try:
+        self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.description = ''
+    try:
+        self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.coverage = ''
+    try:
+        self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.contributor = ''
+    self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+    self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
+    try:
+        self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
+    except (IndexError, AttributeError):
+        self.date = ''
+    self.language = str()
+    self.zh_characters = str()
+    self.character_count = int()
+    self.unique_characters = int()
+    self.tokens = str()
+    self.word_count = int()
+    self.unique_words = int()
+    self.text = str()
+#+END_SRC
 *** Extracting text from ebook
 #+NAME: text-extraction
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def extract_text(self, book):
+def extract_text(self):
     '''
     Extract all text from the book.
     '''
+    book = epub.read_epub(self.filename)
     cleantext = ""
     html_filtered = ""
     for item in book.get_items():
@@ -239,82 +344,11 @@ def detect_language(self):
     We don't trust the epub metadata regarding language tags
     so we do our own language detection
     '''
+    if len(self.tokens) == 0:
+        self.extract_text()
     self.language = Text(self.text).language.code
 #+end_src
 
-*** Extracting metadata
-    We don't extract all text in constructor because it is expensive and we want to check first if it exists in database.
-#+NAME: constructor
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def __init__(self, epub_file):
-    '''
-    Init.
-    '''
-    # pylint: disable=too-many-statements
-    # There is a lot of metadata but it is repetitive and non problematic.
-    try:
-        self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.epub_type = ''
-    try:
-        self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.subject = ''
-    try:
-        self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.source = ''
-    try:
-        self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.rights = ''
-    try:
-        self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.relation = ''
-    try:
-        self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.publisher = ''
-    #try:
-    #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
-    #except (IndexError, AttributeError):
-    #    self.language = 'empty'
-    try:
-        self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.identifier = ''
-    try:
-        self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.epub_format = ''
-    try:
-        self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.description = ''
-    try:
-        self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.coverage = ''
-    try:
-        self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.contributor = ''
-    self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-    self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
-    try:
-        self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.date = ''
-    self.language = str()
-    self.zh_characters = str()
-    self.character_count = int()
-    self.unique_characters = int()
-    self.tokens = str()
-    self.word_count = int()
-    self.unique_words = int()
-    self.text = str()
-#+END_SRC
 *** Tokenization
     If the language is Chinese, appart from doing the tokenization, we also measure individual characters.
 #+NAME: tokenization
@@ -323,6 +357,8 @@ def tokenize(self):
     '''
     Tokenization.
     '''
+    if len(self.tokens) == 0:
+        self.extract_text()
     if self.language == 'zh' or self.language == 'zh_Hant':
         self.zh_characters = ''.join(character for character in self.text
                                      if u'\u4e00' <= character <= u'\u9fff')
@@ -363,120 +399,10 @@ def release_tokens(self):
     self.tokens = str()
 #+END_SRC
 
-*** Log writing
-#+NAME: log-writing
-#+BEGIN_SRC python :noweb yes :session python :exports code
-with open("/home/rcl/readability-measure/test/"
-          + str(language_detected)
-          + ".tsv", "w") as myfile:
-    myfile.write(str(wordCount) + "\t"
-                 + str(uniqueWords) + "\t"
-                 #+ str(intercept) + "\t"
-                 #+ str(slope) + "\t"
-                 + str(language_detected) + "\t"
-                 + str(author) + "\t"
-                 + str(title) + "\t"
-                 + str(epub_type) + "\t"
-                 + str(subject) + "\t"
-                 + str(source) + "\t"
-                 + str(rights) + "\t"
-                 + str(relation) + "\t"
-                 + str(publisher) + "\t"
-                 + str(identifier) + "\t"
-                 + str(epubFormat) + "\t"
-                 # + str(description) + "\t"
-                 + str(contributor) + "\t"
-                 + str(date) + "\n")
-#+END_SRC
-
-** Curve fitting
-   We can only do the curve fitting with books longer than 10000 tokens. This is because, to begin with, books don't exhibit logarithmic behavior until they reach around 4 thousand words.
-   Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
-#+NAME: lexical-sweep
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def lexical_sweep(text, samples=10, log_x=False, log_y=False):
-    '''
-    Lexical sweep.
-    '''
-    #log_behaviour_start = 5000
-    log_behaviour_start = 10
-    sweep_values = []
-    log_behaviour_range = len(text) - log_behaviour_start
-    log_step = log_behaviour_range/samples
-    if len(text) > 10000 and samples > 2:
-        for sample_size in xrange(
-                log_behaviour_start,
-                log_behaviour_range,
-                log_step):
-            if log_x:
-                x_sample = log(len(text[0:sample_size]))
-            else:
-                x_sample = len(text[0:sample_size])
-            if log_y:
-                y_sample = log(len(set(text[0:sample_size])))
-            else:
-                y_sample = len(set(text[0:sample_size]))
-            sweep_values.append([x_sample, y_sample])
-        return sweep_values
-    return False
-#+END_SRC
-
-#+NAME: curve-fit
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def extract_fit_parameters(function, sweep_values):
-    '''
-    Curve fit.
-    '''
-    if sweep_values:
-        array = list(zip(*sweep_values))
-        xarr = array[0]
-        yarr = array[1]
-        initial_a = 0
-        initial_b = 0
-        popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
-        slope = popt[0]
-        intercept = popt[1]
-        perr = np.sqrt(np.diag(pcov))
-        std_error_slope = perr[0]
-        std_error_intercept = perr[1]
-        return {'intercept': intercept,
-                'slope': slope,
-                'std_error_intercept': std_error_intercept,
-                'std_error_slope': std_error_slope}
-    return {'intercept': int(),
-            'slope': int(),
-            'std_error_intercept': int(),
-            'std_error_slope': int()}
-#+END_SRC
-
-#+RESULTS: lexical-sweep
-
-Empirically, We have found
-#+NAME: fit-functions
-#+begin_src python :noweb yes :session python :exports code
-def linear_func(variable, slope, y_intercept):
-    '''
-    Linear model.
-    '''
-    return slope*variable + y_intercept
-
-def log_func(variable, coefficient, x_intercept):
-    '''
-    Logarithmic model.
-    '''
-    return coefficient*log(variable) + x_intercept
-
-def log_log_func(variable, coefficient, intercept):
-    '''
-    Log-log model.
-    '''
-    return math.e**(coefficient*log(variable) + intercept)
-#+end_src
-
 ** Main
  #+NAME: main
  #+BEGIN_SRC python :noweb yes :session python :exports code
-def analyse_book(ebook, check_db=False):
+def analyse_book(ebook, samples=10, check_db=False):
     '''
     Analyse individual book.
     You can insert into db or into json afterwards
@@ -487,24 +413,17 @@ def analyse_book(ebook, check_db=False):
             print "Ebook too big. Next."
             return False
         try:
-            epub_file = epub.read_epub(ebook)
+            my_book = Book(ebook)
         except Exception as ex:
             print ex
             return False
-        print "Getting epub metadata"
-        my_book = Book(epub_file)
         if check_db:
             print "Checking if book exists in database"
             if is_book_in_db(my_book.title, my_book.author):
                 return False
-        print "Extracting text from ebook"
-        my_book.extract_text(epub_file)
-        print "Detecting language"
+        my_book.extract_text()
         my_book.detect_language()
-        print "Language detected: " + str(my_book.language)
-        print "Performing tokenization"
         my_book.tokenize()
-        print "Lexical sweeps"
         sweep_values = lexical_sweep(my_book.tokens,
                                      samples=10,
                                      log_x=True,
@@ -557,6 +476,203 @@ if __name__ == '__main__':
  #+END_SRC
 
  #+RESULTS: epub-handling
+** Imports
+   We import some packages to make our life easier:
+   - ebooklib: to process epubs
+   - BeautifulSoup: to process the html in epubs
+   - langdetect to detect language. We use this because based on experience epub language tags are not very reliable
+   - ntlk: to do natural language processing
+#+NAME: imports
+#+BEGIN_SRC python :session python :results none :exports code
+import unicodedata
+import sys
+import os
+import math
+import subprocess
+import ebooklib
+from ebooklib import epub
+from bs4 import BeautifulSoup
+from scipy.optimize import curve_fit
+from scipy import log as log
+import numpy as np
+import mysql.connector
+from polyglot.text import Text
+#+END_SRC
+
+** Architecture
+     #+PROPERTY: session *python*
+  #+PROPERTY: cache yes
+  #+PROPERTY: results none
+  In a first instance, we want to extract the following information from each ebook:
+  - Author
+  - Title
+  - Length in number of words
+  - Number of unique words
+  It would be nice to create a file for each language (according to metadata).
+  The logic would be the following:
+  Try adding the results to a file suffixed with the language code.
+  If that throws an exception, create the file and add the results
+#+BEGIN_SRC python :noweb yes :tangle corpus_analysis.py :exports code
+# -*- coding: utf-8 -*-
+'''
+corpus-analysis.py: readability measure for epub ebooks.
+Version 1.0
+Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
+'''
+# Imports
+<<imports>>
+# Constants
+<<printable-set>>
+# Book Class
+<<book-class>>
+# Functions
+<<utf8-cleaning>>
+## Curve fitting functions
+<<curve-fit>>
+<<lexical-sweep>>
+<<fit-functions>>
+## Database functions
+<<db-connection>>
+<<database-insertion>>
+<<database-creation>>
+<<is-book-in-db>>
+<<db-backup>>
+# Main function
+<<main>>
+#+END_SRC
+
+#+RESULTS:
+: None
+
+* Arguelles Analysis
+** Python
+*** Whole length
+#+NAME: moby
+#+BEGIN_SRC python :exports code :session readability_measure :results output
+from corpus_analysis import Book
+
+moby_dick = Book("test/moby.epub")
+moby_dick.extract_text()
+moby_dick.tokenize()
+print moby_dick.title
+with open('moby.tsv', 'w+') as my_file:
+    my_file.write(str(moby_dick.word_count) + "\t" + str(moby_dick.unique_words) + "\n")
+#+END_SRC
+#+NAME: pinocchio
+#+BEGIN_SRC python :exports code :session readability_measure :results output
+from corpus_analysis import Book
+
+pinocchio = Book("test/pinocchio.epub")
+pinocchio.extract_text()
+pinocchio.tokenize()
+print pinocchio.title
+
+with open('pinocchio.tsv', 'w') as my_file:
+    my_file.write(str(pinocchio.word_count) + "\t" + str(pinocchio.unique_words) + "\n")
+#+END_SRC
+#+RESULTS: pinocchio
+: The Adventures of Pinocchio
+*** Sweep
+#+NAME: moby_sweep
+#+BEGIN_SRC python :exports code :session readability_measure :results output
+from corpus_analysis import Book
+
+moby_dick = Book("test/moby.epub")
+moby_dick.extract_text()
+moby_dick.tokenize()
+print moby_dick.title
+sweep_values = lexical_sweep(moby_dick.tokens, samples=100, log_x=False, log_y=False)
+with open('moby_sweep.tsv', 'w') as my_file:
+    for sweep_value in sweep_values:
+        my_file.write(str(sweep_value[0]) + "\t" + str(sweep_value[1]) + "\n")
+#+END_SRC
+
+#+RESULTS: moby_sweep
+: Moby Dick; Or, The Whale
+
+#+NAME: pinocchio_sweep
+#+BEGIN_SRC python :exports code :session readability_measure :results output
+from corpus_analysis import Book, lexical_sweep
+
+pinocchio = Book("test/pinocchio.epub")
+pinocchio.extract_text()
+pinocchio.tokenize()
+print pinocchio.title
+sweep_values = lexical_sweep(pinocchio.tokens, samples=100, log_x=False, log_y=False)
+with open('pinocchio_sweep.tsv', 'w') as my_file:
+    for sweep_value in sweep_values:
+        my_file.write(str(sweep_value[0]) + "\t" + str(sweep_value[1]) + "\n")
+#+END_SRC
+
+#+RESULTS: pinocchio_sweep
+: The Adventures of Pinocchio
+** Plot
+#+NAME: moby_pinocchio_plot
+#+BEGIN_SRC gnuplot :var pinocchio_title=pinocchio moby_title=moby :exports both moby_pinocchio.png
+reset
+set xrange [0:300000]
+set yrange [0:25000]
+set key autotitle columnhead
+set style line 1 lw 4 lc rgb '#990042' ps 2 pt 6 pi 5
+set style line 2 lw 3 lc rgb '#31f120' ps 2 pt 12 pi 3
+set title "Lexical variety Vs Length"
+set title pinocchio_title
+set xlabel "Length in words"
+set ylabel "Unique words"
+plot "moby.tsv" ls 1 title moby_title, \
+     "pinocchio.tsv" ls 2 title pinocchio_title
+#+END_SRC
+
+#+RESULTS: moby_pinocchio_plot
+
+#+RESULTS:
+
+#+NAME: moby_pinocchio_sweep_plot
+#+BEGIN_SRC gnuplot :var pinocchio_title=pinocchio_sweep moby_title=moby_sweep :exports both :file moby_pinocchio.png
+reset
+set xrange [4000:400000]
+set yrange [1000:40000]
+set logscale x
+set logscale y
+set style line 1 lw 4 lc rgb '#990042' ps 2 pt 6 pi 5
+set style line 2 lw 3 lc rgb '#31f120' ps 2 pt 12 pi 3
+set title pinocchio_title
+set title "Pinocchio and Moby Dick comparison"
+#set title "Lexical variety Vs Length"
+set xlabel "Length in words"
+set ylabel "Unique words"
+plot "moby_sweep.tsv" ls 1 title moby_title, \
+     "pinocchio_sweep.tsv" ls 2 title pinocchio_title
+#+END_SRC
+
+#+RESULTS: moby_pinocchio_sweep_plot
+[[file:moby_pinocchio.png]]
+
+#+RESULTS:
+
+#+begin_src gnuplot :exports both file.png
+reset
+
+set title "Putting it All Together"
+
+set xlabel "X"
+set xrange [-8:8]
+set xtics -8,2,8
+
+
+set ylabel "Y"
+set yrange [-20:70]
+set ytics -20,10,70
+
+2f(x) = x**2
+g(x) = x**3
+h(x) = 10*sqrt(abs(x))
+i(x) = 15*sin(x)
+
+plot f(x) w lp lw 1, g(x) w p lw 2, h(x) w l lw 3, i(x) w l lw 4
+#+end_src
+
+#+RESULTS:
 
 * Testing
 #+BEGIN_SRC python :noweb yes :tangle test_corpus_analysis.py :exports code
@@ -580,8 +696,7 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
                 self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
                 self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
                 self.assertEqual(my_book.epub_type, benchmark['epub_type'].encode('utf-8'))
@@ -603,9 +718,8 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
-                my_book.extract_text(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book.extract_text()
                 my_book.detect_language()
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
@@ -617,9 +731,8 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
-                my_book.extract_text(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book.extract_text()
                 my_book.detect_language()
                 my_book.tokenize()
                 self.assertEqual(my_book.word_count, benchmark['word_count'])
@@ -635,9 +748,8 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
-                my_book.extract_text(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book.extract_text()
                 my_book.detect_language()
                 my_book.tokenize()
                 sweep_values = lexical_sweep(my_book.tokens, samples=10, log_x=True, log_y=True)
@@ -745,6 +857,8 @@ wget https://www.gutenberg.org/ebooks/21000.epub.noimages?session_id=e525c6c0f4f
 wget https://www.gutenberg.org/ebooks/23306.epub.noimages?session_id=13a48cb17a2a788bd0df32eb9d11b2cc90e5ffb6 -O test/meditationes.epub
 wget https://www.gutenberg.org/ebooks/2000.epub.noimages?session_id=13a48cb17a2a788bd0df32eb9d11b2cc90e5ffb6 -O test/Quijote.epub
 wget https://www.gutenberg.org/ebooks/521.epub.noimages?session_id=13a48cb17a2a788bd0df32eb9d11b2cc90e5ffb6 -O test/crusoe.epub
+wget https://www.gutenberg.org/ebooks/2701.epub.noimages?session_id=37b8b8ef79424fa1e6b7a18eb4b341d5de076f03 -O test/moby.epub
+wget https://www.gutenberg.org/ebooks/500.epub.noimages?session_id=37b8b8ef79424fa1e6b7a18eb4b341d5de076f03 -O test/pinocchio.epub
    #+end_src
 
    #+RESULTS:
@@ -1049,8 +1163,11 @@ xyplot(1:10 ~ 1:10)
 [[file:3.png]]
 * Plotting
 
+#+RESULTS:
+
 Perfect. It plots the first two columns and doesn't give an error about all the rest.
 #+BEGIN_SRC gnuplot :exports both all_.png
+reset
 set title "Lexical variety Vs Length"
 set xlabel "Length in words"
 set ylabel "Unique words"
@@ -1067,9 +1184,9 @@ plot  for [filename in es_filelist] filename title 'Spanish' linecolor 1, \
 #+END_SRC
 
 #+RESULTS:
-[[file:languages.png]]
 
 #+BEGIN_SRC gnuplot :exports both :file chinese.png
+reset
 set title "Lexical variety Vs Length"
 set xlabel "Length in characters"
 set ylabel "Unique characters"
@@ -1081,6 +1198,7 @@ plot 'zh-TW.tsv' title 'Chinese' linecolor 1
 #+RESULTS:
 
 #+BEGIN_SRC gnuplot :exports both :file arabic.png
+reset
 set title "Lexical variety Vs Length"
 set xlabel "Length in characters"
 set ylabel "Unique characters"
@@ -1090,6 +1208,7 @@ plot 'ar.tsv' title 'Arabic' linecolor 1
 #+END_SRC
 
 #+BEGIN_SRC gnuplot :exports both :file all.png
+reset
 set multiplot
 set title "Lexical variety Vs Length"
 set xlabel "Length in words"
@@ -1242,3 +1361,15 @@ Las conversaciones privadas de Hitler
 308320
 28381
 #+end_example
+#+begin_src emacs-lisp
+(require 'virtualenvwrapper)
+(setq venv-location "/home/rcl/readability-measure/env/")
+#+end_src
+
+#+RESULTS:
+: /home/rcl/readability-measure/env/
+
+#+RESULTS:
+|                 |
+|                 |
+| /usr/bin/python |

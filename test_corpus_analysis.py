@@ -18,8 +18,7 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
                 self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
                 self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
                 self.assertEqual(my_book.epub_type, benchmark['epub_type'].encode('utf-8'))
@@ -41,9 +40,8 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
-                my_book.extract_text(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book.extract_text()
                 my_book.detect_language()
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
@@ -55,9 +53,8 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
-                my_book.extract_text(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book.extract_text()
                 my_book.detect_language()
                 my_book.tokenize()
                 self.assertEqual(my_book.word_count, benchmark['word_count'])
@@ -73,9 +70,8 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                epub_file = epub.read_epub(benchmark['path'].encode('utf-8'))
-                my_book = Book(epub_file)
-                my_book.extract_text(epub_file)
+                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book.extract_text()
                 my_book.detect_language()
                 my_book.tokenize()
                 sweep_values = lexical_sweep(my_book.tokens, samples=10, log_x=True, log_y=True)
