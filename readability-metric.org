@@ -11,19 +11,19 @@
 #+LATEX_HEADER: \Shorttitle{Pending}
 #+LATEX_HEADER: \Keywords{readability metric, readability test, readability, formula, comprehensible input, extensive reading, vocabulary, literate programming, reproducible research, emacs}
 #+LATEX_HEADER: \Address{Pending}
-#+LATEX_HEADER: \Abstract{We present a readability metric, capable of being applied to books written in multiple languages and easy to compute, therefore lending itself to be applied to large corpora composed of thousands of books. It uses length of text (measured in words) versus unique words to compute the rate at which the author introduces new vocabulary in a certain book. This rate can then be used to rank the book with respect to others. This readability metric is only }
+#+LATEX_HEADER: \Abstract{We present a readability metric, capable of being applied to books written in multiple languages and easy to compute, therefore lending itself to be applied to large corpora composed of thousands of books. It uses length of text (metricd in words) versus unique words to compute the rate at which the author introduces new vocabulary in a certain book. This rate can then be used to rank the book with respect to others. This readability metric is only suitable to texts of at least 10.000 (ten thousand) words. It is therefore used primarely for the analysis of }
 #+LaTeX_CLASS: jss
 #+STARTUP: oddeven
 * Summary
-  The main idea of this paper is that the rate at which an author introduces new words into a book can function as a readability measure.
+  The main idea of this paper is that the rate at which an author introduces new words into a book can function as a readability metric.
   This rate takes into account the number of unique words and the length in words of a book.
   So, in a simplified case, between two books with the same length, the one with fewer unique words is easiest to read, all other factors being equal.
-  This readability measure is valuable to people who, having a large corpus of books, want to find those that are easiest to read in comparison with the rest of the corpus.
+  This readability metric is valuable to people who, having a large corpus of books, want to find those that are easiest to read in comparison with the rest of the corpus.
   In other words, helps you find comprehensible input.
-  In this project we are going to develop a readability measure based on corpus analysis.
-** What is a readability measure?
-   A readability measure is a set of equations used to quantify how easy a given text is to read.
-   In this project, we focus on long texts, with more that 2000 words or tokens. This is in contrast with other readability measures which analyze sentences.
+  In this project we are going to develop a readability metric based on corpus analysis.
+** What is a readability metric?
+   A readability metric is a set of equations used to quantify how easy a given text is to read.
+   In this project, we focus on long texts, with more that 2000 words or tokens. This is in contrast with other readability metrics which analyze sentences.
 * Literature review
   Alexander Arguelles proposes the following:
 * Approach
@@ -50,18 +50,18 @@ wget -np -P $1 -r -A .epub -R "V*.epub" http://haodoo.net/PDB/
   #+END_SRC
 
 #+BEGIN_SRC shell :exports code
-find ~/readability-measure/corpus/Chinese/haodoo.net/PDB/ -mindepth 1 -type f -name "*.epub" -exec printf x \; | wc -c
+find ~/readability-metric/corpus/Chinese/haodoo.net/PDB/ -mindepth 1 -type f -name "*.epub" -exec printf x \; | wc -c
 #+END_SRC
 
 #+RESULTS:
 : 3699
 
 #+BEGIN_SRC shell :exports code
-ls -ltu ~/readability-measure/corpus/Chinese/haodoo.net/PDB/A/*435.epub
+ls -ltu ~/readability-metric/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 #+END_SRC
 
 #+RESULTS:
-: -rw-rw-r-- 1 rcl rcl 130460 jul 19 16:04 /home/rcl/readability-measure/corpus/Chinese/haodoo.net/PDB/A/435.epub
+: -rw-rw-r-- 1 rcl rcl 130460 jul 19 16:04 /home/rcl/readability-metric/corpus/Chinese/haodoo.net/PDB/A/435.epub
 ** Arabic
    [[http://www.hindawi.
 org/][http://www.hindawi.org/]]
@@ -70,7 +70,7 @@ wget -np -P $1 -r -A .epub http://www.hindawi.org/books/
    #+END_SRC
 ** Russian
    #+BEGIN_SRC shell :exports code
-wget -np -P ~/readability-measure/corpus/Russian/ -r -A .epub https://www.rulit.me/
+wget -np -P ~/readability-metric/corpus/Russian/ -r -A .epub https://www.rulit.me/
    #+END_SRC
 ** All
    The Gutenberg project is also a good source of books.
@@ -350,7 +350,7 @@ def detect_language(self):
 #+end_src
 
 *** Tokenization
-    If the language is Chinese, appart from doing the tokenization, we also measure individual characters.
+    If the language is Chinese, appart from doing the tokenization, we also metric individual characters.
 #+NAME: tokenization
 #+BEGIN_SRC python :noweb yes :session python :exports code
 def tokenize(self):
@@ -515,7 +515,7 @@ from polyglot.text import Text
 #+BEGIN_SRC python :noweb yes :tangle corpus_analysis.py :exports code
 # -*- coding: utf-8 -*-
 '''
-corpus-analysis.py: readability measure for epub ebooks.
+corpus-analysis.py: readability metric for epub ebooks.
 Version 1.0
 Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 '''
@@ -548,7 +548,7 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 ** Python
 *** Whole length
 #+NAME: moby
-#+BEGIN_SRC python :exports code :session readability_measure :results output
+#+BEGIN_SRC python :exports code :session readability_metric :results output
 from corpus_analysis import Book
 
 moby_dick = Book("test/moby.epub")
@@ -559,7 +559,7 @@ with open('moby.tsv', 'w+') as my_file:
     my_file.write(str(moby_dick.word_count) + "\t" + str(moby_dick.unique_words) + "\n")
 #+END_SRC
 #+NAME: pinocchio
-#+BEGIN_SRC python :exports code :session readability_measure :results output
+#+BEGIN_SRC python :exports code :session readability_metric :results output
 from corpus_analysis import Book
 
 pinocchio = Book("test/pinocchio.epub")
@@ -574,7 +574,7 @@ with open('pinocchio.tsv', 'w') as my_file:
 : The Adventures of Pinocchio
 *** Sweep
 #+NAME: moby_sweep
-#+BEGIN_SRC python :exports code :session readability_measure :results output
+#+BEGIN_SRC python :exports code :session readability_metric :results output
 from corpus_analysis import Book
 
 moby_dick = Book("test/moby.epub")
@@ -591,7 +591,7 @@ with open('moby_sweep.tsv', 'w') as my_file:
 : Moby Dick; Or, The Whale
 
 #+NAME: pinocchio_sweep
-#+BEGIN_SRC python :exports code :session readability_measure :results output
+#+BEGIN_SRC python :exports code :session readability_metric :results output
 from corpus_analysis import Book, lexical_sweep
 
 pinocchio = Book("test/pinocchio.epub")
@@ -1107,9 +1107,9 @@ set xlabel "Length in characters"
 set ylabel "Unique characters"
 set logscale x
 set nologscale y
-plot '/home/rcl/readability-measure/test/0936.tsv' title 'Jipin Jiading' linecolor 1, \
-     '/home/rcl/readability-measure/test/1077-4000.tsv' title 'Cixi Quanzhuan' linecolor 2
-     #'/home/rcl/readability-measure/zh-TW.tsv' title 'Chinese' linecolor 3
+plot '/home/rcl/readability-metric/test/0936.tsv' title 'Jipin Jiading' linecolor 1, \
+     '/home/rcl/readability-metric/test/1077-4000.tsv' title 'Cixi Quanzhuan' linecolor 2
+     #'/home/rcl/readability-metric/zh-TW.tsv' title 'Chinese' linecolor 3
 unset multiplot
 #+END_SRC
 
@@ -1125,9 +1125,9 @@ set xlabel "Length in characters"
 set ylabel "Unique characters"
 set logscale x
 set nologscale y
-plot '/home/rcl/readability-measure/zh-TW.tsv' title 'Jipin Jiading' linecolor 1, \
-     #'/home/rcl/readability-measure/zh-TW.tsv' title 'Cixi Quanzhuan' linecolor 2
-     #'/home/rcl/readability-measure/zh-TW.tsv' title 'Chinese' linecolor 3
+plot '/home/rcl/readability-metric/zh-TW.tsv' title 'Jipin Jiading' linecolor 1, \
+     #'/home/rcl/readability-metric/zh-TW.tsv' title 'Cixi Quanzhuan' linecolor 2
+     #'/home/rcl/readability-metric/zh-TW.tsv' title 'Chinese' linecolor 3
 unset multiplot
 #+END_SRC
 
@@ -1135,7 +1135,7 @@ unset multiplot
 [[file:test.png]]
 
 #+BEGIN_SRC R :file R.png :results output graphics
-dat <- read.csv("~/readability-measure/zh-TW.tsv", header=FALSE, sep="\t")
+dat <- read.csv("~/readability-metric/zh-TW.tsv", header=FALSE, sep="\t")
 x = dat[, 1]
 y = dat[, 2]
 
@@ -1232,8 +1232,8 @@ unset multiplot
 * Tagging
   The purpose of this section is to tag the lists containing the analysis with the canon to which they belong, if appropriate.
   #+begin_src bash :tangle canon-tagging.sh :exports code
-canon="/home/rcl/readability-measure/canon/chinese.txt"
-analized="/home/rcl/readability-measure/tagging/zh-TW.tsv"
+canon="/home/rcl/readability-metric/canon/chinese.txt"
+analized="/home/rcl/readability-metric/tagging/zh-TW.tsv"
 list=""
 while read -r author_canon title_canon; do
         list+=$author_canon
@@ -1258,7 +1258,7 @@ done < "$analized"
   #+end_src
 
   #+begin_src bash
-linewriting="/home/rcl/readability-measure/linewriting.txt"
+linewriting="/home/rcl/readability-metric/linewriting.txt"
 touch $linewriting
 echo "roland coeurjoly" > $linewriting
 echo "chun zhang" >> $linewriting
@@ -1275,8 +1275,8 @@ less $linewriting
 # -*- coding: utf-8 -*-
 import numpy
 import csv
-canon_file="/home/rcl/readability-measure/canon/chinese.txt"
-analysis_file="/home/rcl/readability-measure/tagging/zh-TW.tsv"
+canon_file="/home/rcl/readability-metric/canon/chinese.txt"
+analysis_file="/home/rcl/readability-metric/tagging/zh-TW.tsv"
 canon = numpy.array(list(csv.reader(open(canon_file, "rb"), delimiter=" "))).astype("object")
 analysis = numpy.array(list(csv.reader(open(analysis_file, "rb"), delimiter="\t"))).astype("object")
 print canon[90][0]
@@ -1363,11 +1363,11 @@ Las conversaciones privadas de Hitler
 #+end_example
 #+begin_src emacs-lisp
 (require 'virtualenvwrapper)
-(setq venv-location "/home/rcl/readability-measure/env/")
+(setq venv-location "/home/rcl/readability-metric/env/")
 #+end_src
 
 #+RESULTS:
-: /home/rcl/readability-measure/env/
+: /home/rcl/readability-metric/env/
 
 #+RESULTS:
 |                 |
