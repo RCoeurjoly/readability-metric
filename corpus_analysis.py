@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-corpus-analysis.py: readability measure for epub ebooks.
+corpus-analysis.py: readability metric for epub ebooks.
 Version 1.0
 Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 '''

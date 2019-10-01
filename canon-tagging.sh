@@ -1,5 +1,5 @@
-canon="/home/rcl/readability-measure/canon/chinese.txt"
-analized="/home/rcl/readability-measure/tagging/zh-TW.tsv"
+canon="/home/rcl/readability-metric/canon/chinese.txt"
+analized="/home/rcl/readability-metric/tagging/zh-TW.tsv"
 list=""
 while read -r author_canon title_canon; do
         list+=$author_canon
