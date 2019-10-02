@@ -132,7 +132,7 @@ class Book(object):
         '''
         Tokenization.
         '''
-        if len(self.tokens) == 0:
+        if not len(self.tokens):
             self.extract_text()
         if self.language == 'zh' or self.language == 'zh_Hant':
             self.zh_characters = ''.join(character for character in self.text
@@ -164,7 +164,7 @@ class Book(object):
         We don't trust the epub metadata regarding language tags
         so we do our own language detection
         '''
-        if len(self.tokens) == 0:
+        if not len(self.tokens):
             self.extract_text()
         self.language = Text(self.text).language.code
     def release_text(self):
