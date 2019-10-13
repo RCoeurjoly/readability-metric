@@ -10,6 +10,8 @@ import sys
 import os
 import math
 import subprocess
+import unittest
+import json
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
@@ -51,7 +53,8 @@ PRINTABLE = {
     'Zl',
     'Zp',
     'Zs'}
-# Book Class
+# Classes
+## Book Class
 class Book(object):
     '''
     Book class
@@ -132,7 +135,7 @@ class Book(object):
         '''
         Tokenization.
         '''
-        if not len(self.tokens):
+        if not self.tokens:
             self.extract_text()
         if self.language == 'zh' or self.language == 'zh_Hant':
             self.zh_characters = ''.join(character for character in self.text
@@ -164,7 +167,7 @@ class Book(object):
         We don't trust the epub metadata regarding language tags
         so we do our own language detection
         '''
-        if not len(self.tokens):
+        if not self.tokens:
             self.extract_text()
         self.language = Text(self.text).language.code
     def release_text(self):
@@ -455,7 +458,7 @@ def analyse_book(ebook, samples=10, check_db=False):
         my_book.detect_language()
         my_book.tokenize()
         sweep_values = lexical_sweep(my_book.tokens,
-                                     samples=10,
+                                     samples,
                                      log_x=True,
                                      log_y=True)
         try:
@@ -464,7 +467,7 @@ def analyse_book(ebook, samples=10, check_db=False):
             print ex
             return False
         sweep_values = lexical_sweep(my_book.zh_characters,
-                                     samples=10,
+                                     samples,
                                      log_x=True,
                                      log_y=False)
         try:
@@ -501,5 +504,6 @@ def analyze_books(argv):
             else:
                 runbackup("localhost", "root", "root")
     MY_DB.close()
+
 if __name__ == '__main__':
     analyze_books(sys.argv)

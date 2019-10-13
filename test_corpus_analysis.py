@@ -15,10 +15,10 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test metadata
         '''
-        with open("benchmarks.json", "r") as test_cases:
+        with open("test/benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['path'].encode('utf-8'))
+                my_book = corpus_analysis.Book(benchmark['path'].encode('utf-8'))
                 self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
                 self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
                 self.assertEqual(my_book.epub_type, benchmark['epub_type'].encode('utf-8'))
@@ -37,7 +37,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("benchmarks.json", "r") as test_cases:
+        with open("test/benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -50,7 +50,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("benchmarks.json", "r") as test_cases:
+        with open("test/benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -67,7 +67,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("benchmarks.json", "r") as test_cases:
+        with open("test/benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -95,11 +95,6 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(float(zh_character_curve_fit['std_error_intercept']),
                                  benchmark['zh_character_curve_fit_std_error_intercept'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
-def main():
-    '''
-    Main
-    '''
-    unittest.main()
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    unittest.main()
