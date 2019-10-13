@@ -18,7 +18,7 @@ class MyTest(unittest.TestCase):
         with open("test/benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = corpus_analysis.Book(benchmark['path'].encode('utf-8'))
+                my_book = Book(benchmark['path'].encode('utf-8'))
                 self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
                 self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
                 self.assertEqual(my_book.epub_type, benchmark['epub_type'].encode('utf-8'))
