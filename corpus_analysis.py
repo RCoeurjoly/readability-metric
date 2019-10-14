@@ -10,8 +10,6 @@ import sys
 import os
 import math
 import subprocess
-import unittest
-import json
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
@@ -285,14 +283,14 @@ def insert_book_db(book, word_curve_fit, zh_character_curve_fit):
     character_count,
     unique_characters,
     language,
-    epubType,
+    epub_type,
     subject,
     source,
     rights,
     relation,
     publisher,
     identifier,
-    epubFormat,
+    epub_format,
     description,
     contributor,
     date
@@ -358,6 +356,9 @@ def create_database():
     mycursor = MY_DB.cursor()
     mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
     mycursor.execute(
+        "ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+    mycursor.execute("USE library;")
+    mycursor.execute(
         """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255),
         author VARCHAR(255),
@@ -381,12 +382,10 @@ def create_database():
         relation VARCHAR(255),
         publisher VARCHAR(255),
         identifier VARCHAR(255),
-        epubFormat VARCHAR(255),
+        epub_format VARCHAR(255),
         description VARCHAR(510),
         contributor VARCHAR(255),
         date VARCHAR(255)) """)
-    mycursor.execute(
-        "ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
     mycursor.execute(
         "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
     try:
@@ -478,13 +477,14 @@ def analyse_book(ebook, samples=10, check_db=False):
         return my_book, word_curve_fit, zh_character_curve_fit
     return False
 
-def analyze_books(argv):
+def analyse_books(argv):
     '''
     Main function: open and read all epub files in directory.
     Analyze them and populate data in database
     :param argv: command line args.
     '''
-    books_analyzed = 1
+    create_database()
+    books_analyzed = 0
     for dirpath, __, files in os.walk(str(argv[1])):
         for ebook in files:
             try:
@@ -495,7 +495,6 @@ def analyze_books(argv):
                 print ex
                 continue
             print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-            books_analyzed += 1
             print "Writing to database"
             insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
             books_analyzed += 1
@@ -506,4 +505,4 @@ def analyze_books(argv):
     MY_DB.close()
 
 if __name__ == '__main__':
-    analyze_books(sys.argv)
+    analyse_books(sys.argv)
