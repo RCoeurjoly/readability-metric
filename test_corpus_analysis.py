@@ -103,78 +103,105 @@ class MyTest(unittest.TestCase):
         '''
         Write all books to database
         '''
-        expected_result_Xueqin = [(1, u'\u7d05\u6a13\u5922', u'Xueqin Cao',
-                                  Decimal('0.49438'), Decimal('3.36368'),
-                                  Decimal('0.01678'), Decimal('0.20654'),
-                                  Decimal('662992.0'), Decimal('21113.0'),
-                                  Decimal('636.13906'), Decimal('-4277.28846'),
-                                  Decimal('5.36047'), Decimal('66.41762'),
-                                  Decimal('724567.0'), Decimal('4263.0'),
-                                  u'zh_Hant', u'',
-                                  u'China -- History -- Qing dynasty, 1644-1912 -- Fiction',
-                                  u'http://www.gutenberg.orgfiles/24264/24264-0.txt',
-                                  u'Public domain in the USA.', u'', u'',
-                                  u'http://www.gutenberg.org/ebooks/24264', u'', u'', u'',
-                                  u'2008-01-12')]
-
-        expected_result_Collodi = [(2, u'The Adventures of Pinocchio',
-                                   u'Carlo Collodi', Decimal('0.56476'),
-                                   Decimal('2.29671'), Decimal('0.01358'),
-                                   Decimal('0.13704'), Decimal('52544.0'),
-                                   Decimal('4945.0'), Decimal('0.00000'),
-                                   Decimal('0.00000'), Decimal('0.00000'),
-                                   Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'),
-                                   u'en', u'', u'Fairy tales',
-                                   u'http://www.gutenberg.org/files/500/500-h/500-h.htm',
+        query_pattern = """Select title,
+        author,
+        slope,
+        intercept,
+        std_error_slope,
+        std_error_intercept,
+        word_count,
+        unique_words,
+        zhslope,
+        zhintercept,
+        zhstd_error_slope,
+        zhstd_error_intercept,
+        character_count,
+        unique_characters,
+        language,
+        epub_type,
+        subject,
+        source,
+        rights,
+        relation,
+        publisher,
+        identifier,
+        epub_format,
+        description,
+        contributor,
+        date from corpus
+        """
+        expected_result_Xueqin = [(u'\u7d05\u6a13\u5922', u'Xueqin Cao',
+                                   Decimal('0.49438'), Decimal('3.36368'),
+                                   Decimal('0.01678'), Decimal('0.20654'),
+                                   Decimal('662992.0'), Decimal('21113.0'),
+                                   Decimal('636.13906'), Decimal('-4277.28846'),
+                                   Decimal('5.36047'), Decimal('66.41762'),
+                                   Decimal('724567.0'), Decimal('4263.0'),
+                                   u'zh_Hant', u'',
+                                   u'China -- History -- Qing dynasty, 1644-1912 -- Fiction',
+                                   u'http://www.gutenberg.orgfiles/24264/24264-0.txt',
                                    u'Public domain in the USA.', u'', u'',
-                                   u'http://www.gutenberg.org/ebooks/500', u'', u'',
-                                   u'Carol Della Chiesa', u'2006-01-12')]
+                                   u'http://www.gutenberg.org/ebooks/24264', u'', u'', u'',
+                                   u'2008-01-12')]
 
-        expected_result_Goethe = [(3, u'Faust: Eine Trag\xf6die', u'Johann Wolfgang von Goethe',
-                                  Decimal('0.76069'), Decimal('1.12047'), Decimal('0.00841'),
-                                  Decimal('0.08245'), Decimal('36751.0'), Decimal('9293.0'),
-                                  Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
-                                  Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'), u'de',
-                                  u'', u'German poetry',
-                                  u'http://www.gutenberg.org/files/21000/21000-h/21000-h.htm',
-                                  u'Public domain in the USA.', u'', u'',
-                                  u'http://www.gutenberg.org/ebooks/21000', u'', u'', u'',
-                                  u'2007-04-06')]
-
-        expected_result_Melville = [(4, u'Moby Dick; Or, The Whale', u'Herman Melville',
-                                    Decimal('0.62059'), Decimal('2.24768'), Decimal('0.00923'),
-                                    Decimal('0.10468'), Decimal('260447.0'), Decimal('20825.0'),
-                                    Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
-                                    Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'), u'en',
-                                    u'', u'Whaling -- Fiction',
-                                    u'http://www.gutenberg.org/files/2701/2701-h/2701-h.htm',
+        expected_result_Collodi = [(u'The Adventures of Pinocchio',
+                                    u'Carlo Collodi', Decimal('0.56476'),
+                                    Decimal('2.29671'), Decimal('0.01358'),
+                                    Decimal('0.13704'), Decimal('52544.0'),
+                                    Decimal('4945.0'), Decimal('0.00000'),
+                                    Decimal('0.00000'), Decimal('0.00000'),
+                                    Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'),
+                                    u'en', u'', u'Fairy tales',
+                                    u'http://www.gutenberg.org/files/500/500-h/500-h.htm',
                                     u'Public domain in the USA.', u'', u'',
-                                    u'http://www.gutenberg.org/ebooks/2701', u'', u'', u'',
-                                    u'2001-07-01')]
+                                    u'http://www.gutenberg.org/ebooks/500', u'', u'',
+                                    u'Carol Della Chiesa', u'2006-01-12')]
 
-        expected_result_Defoe = [(5, u'The Life and Adventures of Robinson Crusoe',
-                                 u'Daniel Defoe', Decimal('0.54545'), Decimal('2.44881'),
-                                 Decimal('0.00879'), Decimal('0.09605'), Decimal('141776.0'),
-                                 Decimal('7643.0'), Decimal('0.00000'), Decimal('0.00000'),
-                                 Decimal('0.00000'), Decimal('0.00000'), Decimal('0.0'),
-                                 Decimal('0.0'), u'en', u'', u'Shipwreck survival -- Fiction',
-                                 u'http://www.gutenberg.org/files/521/521-h/521-h.htm',
-                                 u'Public domain in the USA.', u'', u'',
-                                 u'http://www.gutenberg.org/ebooks/521', u'', u'', u'',
-                                 u'1996-05-01')]
+        expected_result_Goethe = [(u'Faust: Eine Trag\xf6die', u'Johann Wolfgang von Goethe',
+                                   Decimal('0.76069'), Decimal('1.12047'), Decimal('0.00841'),
+                                   Decimal('0.08245'), Decimal('36751.0'), Decimal('9293.0'),
+                                   Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
+                                   Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'), u'de',
+                                   u'', u'German poetry',
+                                   u'http://www.gutenberg.org/files/21000/21000-h/21000-h.htm',
+                                   u'Public domain in the USA.', u'', u'',
+                                   u'http://www.gutenberg.org/ebooks/21000', u'', u'', u'',
+                                   u'2007-04-06')]
 
-        expected_result_Baudelaire = [(6, u'Les Fleurs du Mal', u'Charles Baudelaire', Decimal('0.74097'),
-                                      Decimal('1.32195'), Decimal('0.00444'), Decimal('0.04306'),
-                                      Decimal('31525.0'), Decimal('8177.0'), Decimal('0.00000'),
-                                      Decimal('0.00000'),
-                                      Decimal('0.00000'), Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'),
-                                      u'fr', u'', u'Poetry',
-                                      u'http://www.gutenberg.org/files/6099/6099-h/6099-h.htm',
-                                      u'Public domain in the USA.', u'', u'',
-                                      u'http://www.gutenberg.org/ebooks/6099', u'', u'', u'',
-                                      u'2004-07-01')]
+        expected_result_Melville = [(u'Moby Dick; Or, The Whale', u'Herman Melville',
+                                     Decimal('0.62059'), Decimal('2.24768'), Decimal('0.00923'),
+                                     Decimal('0.10468'), Decimal('260447.0'), Decimal('20825.0'),
+                                     Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
+                                     Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'), u'en',
+                                     u'', u'Whaling -- Fiction',
+                                     u'http://www.gutenberg.org/files/2701/2701-h/2701-h.htm',
+                                     u'Public domain in the USA.', u'', u'',
+                                     u'http://www.gutenberg.org/ebooks/2701', u'', u'', u'',
+                                     u'2001-07-01')]
 
-        expected_result_Saavedra = [(7, u'Don Quijote', u'Miguel de Cervantes Saavedra', Decimal('0.64185'),
+        expected_result_Defoe = [(u'The Life and Adventures of Robinson Crusoe',
+                                  u'Daniel Defoe', Decimal('0.54545'), Decimal('2.44881'),
+                                  Decimal('0.00879'), Decimal('0.09605'), Decimal('141776.0'),
+                                  Decimal('7643.0'), Decimal('0.00000'), Decimal('0.00000'),
+                                  Decimal('0.00000'), Decimal('0.00000'), Decimal('0.0'),
+                                  Decimal('0.0'), u'en', u'', u'Shipwreck survival -- Fiction',
+                                  u'http://www.gutenberg.org/files/521/521-h/521-h.htm',
+                                  u'Public domain in the USA.', u'', u'',
+                                  u'http://www.gutenberg.org/ebooks/521', u'', u'', u'',
+                                  u'1996-05-01')]
+
+        expected_result_Baudelaire = [(u'Les Fleurs du Mal', u'Charles Baudelaire', Decimal('0.74097'),
+                                       Decimal('1.32195'), Decimal('0.00444'), Decimal('0.04306'),
+                                       Decimal('31525.0'), Decimal('8177.0'), Decimal('0.00000'),
+                                       Decimal('0.00000'),
+                                       Decimal('0.00000'), Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'),
+                                       u'fr', u'', u'Poetry',
+                                       u'http://www.gutenberg.org/files/6099/6099-h/6099-h.htm',
+                                       u'Public domain in the USA.', u'', u'',
+                                       u'http://www.gutenberg.org/ebooks/6099', u'', u'', u'',
+                                       u'2004-07-01')]
+
+        expected_result_Saavedra = [(u'Don Quijote', u'Miguel de Cervantes Saavedra', Decimal('0.64185'),
                                      Decimal('1.85563'), Decimal('0.01072'), Decimal('0.12811'),
                                      Decimal('449755.0'), Decimal('27284.0'), Decimal('0.00000'),
                                      Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
@@ -185,16 +212,16 @@ class MyTest(unittest.TestCase):
                                      u'http://www.gutenberg.org/ebooks/2000', u'', u'', u'',
                                      u'1999-12-01')]
 
-        expected_result_Descartes = [(8, u'Meditationes de prima philosophia', u'Ren\xe9 Descartes',
-                                     Decimal('0.57913'), Decimal('2.70417'), Decimal('0.02310'),
-                                     Decimal('0.22193'), Decimal('28207.0'), Decimal('6085.0'),
-                                     Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
-                                     Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'), u'la', u'',
-                                     u'First philosophy',
-                                     u'http://www.gutenberg.org/files/23306/23306-h/23306-h.htm',
-                                     u'Public domain in the USA.', u'', u'',
-                                     u'http://www.gutenberg.org/ebooks/23306', u'', u'', u'',
-                                     u'2007-11-03')]
+        expected_result_Descartes = [(u'Meditationes de prima philosophia', u'Ren\xe9 Descartes',
+                                      Decimal('0.57913'), Decimal('2.70417'), Decimal('0.02310'),
+                                      Decimal('0.22193'), Decimal('28207.0'), Decimal('6085.0'),
+                                      Decimal('0.00000'), Decimal('0.00000'), Decimal('0.00000'),
+                                      Decimal('0.00000'), Decimal('0.0'), Decimal('0.0'), u'la', u'',
+                                      u'First philosophy',
+                                      u'http://www.gutenberg.org/files/23306/23306-h/23306-h.htm',
+                                      u'Public domain in the USA.', u'', u'',
+                                      u'http://www.gutenberg.org/ebooks/23306', u'', u'', u'',
+                                      u'2007-11-03')]
 
         MY_DB = mysql.connector.connect(
             host="localhost",
@@ -206,28 +233,28 @@ class MyTest(unittest.TestCase):
         analyse_books(my_args)
         mycursor = MY_DB.cursor()
         mycursor.execute("USE library;")
-        query_Xueqin = ('SELECT * from corpus where author="Xueqin Cao"')
+        query_Xueqin = (query_pattern + ' where author="Xueqin Cao"')
         mycursor.execute(query_Xueqin)
         self.assertEqual(mycursor.fetchall(), expected_result_Xueqin)
-        query_Collodi = ('SELECT * from corpus where author="Carlo Collodi"')
+        query_Collodi = (query_pattern + ' where author="Carlo Collodi"')
         mycursor.execute(query_Collodi)
         self.assertEqual(mycursor.fetchall(), expected_result_Collodi)
-        query_Goethe = ('SELECT * from corpus where author="Johann Wolfgang von Goethe"')
+        query_Goethe = (query_pattern + ' where author="Johann Wolfgang von Goethe"')
         mycursor.execute(query_Goethe)
         self.assertEqual(mycursor.fetchall(), expected_result_Goethe)
-        query_Melville = ('SELECT * from corpus where author="Herman Melville"')
+        query_Melville = (query_pattern + ' where author="Herman Melville"')
         mycursor.execute(query_Melville)
         self.assertEqual(mycursor.fetchall(), expected_result_Melville)
-        query_Defoe = ('SELECT * from corpus where author="Daniel Defoe"')
+        query_Defoe = (query_pattern + ' where author="Daniel Defoe"')
         mycursor.execute(query_Defoe)
         self.assertEqual(mycursor.fetchall(), expected_result_Defoe)
-        query_Baudelaire = ('SELECT * from corpus where author="Charles Baudelaire"')
+        query_Baudelaire = (query_pattern + ' where author="Charles Baudelaire"')
         mycursor.execute(query_Baudelaire)
         self.assertEqual(mycursor.fetchall(), expected_result_Baudelaire)
-        query_Saavedra = ('SELECT * from corpus where author="Miguel de Cervantes Saavedra"')
+        query_Saavedra = (query_pattern + ' where author="Miguel de Cervantes Saavedra"')
         mycursor.execute(query_Saavedra)
         self.assertEqual(mycursor.fetchall(), expected_result_Saavedra)
-        query_Descartes = ('SELECT * from corpus where author="René Descartes"')
+        query_Descartes = (query_pattern + ' where author="René Descartes"')
         mycursor.execute(query_Descartes)
         self.assertEqual(mycursor.fetchall(), expected_result_Descartes)
 
