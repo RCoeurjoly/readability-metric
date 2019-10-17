@@ -28,4 +28,8 @@ jobs:
     - name: Test with pytest
       run: |
         bash download_benchmark.sh
-        python test_corpus_analysis.py
+        python test_corpus_analysis.py MyTest.test_metadata &
+        python test_corpus_analysis.py MyTest.test_language &
+        python test_corpus_analysis.py MyTest.test_tokens &
+        python test_corpus_analysis.py MyTest.test_fit &
+        python test_corpus_analysis.py MyTest.test_db_writing &

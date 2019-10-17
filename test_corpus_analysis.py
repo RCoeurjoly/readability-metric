@@ -229,10 +229,12 @@ class MyTest(unittest.TestCase):
             passwd="root",
             charset='utf8'
         )
-        my_args = ["lol", "test/", "db/library.db"]
-        analyse_books(my_args)
         mycursor = MY_DB.cursor()
-        mycursor.execute("USE library;")
+        mycursor.execute("DROP DATABASE IF EXISTS library_test;")
+        my_args = ["lol", "test/", "db/library_test.db"]
+        analyse_books(my_args, "library_test")
+        mycursor = MY_DB.cursor()
+        mycursor.execute("USE library_test;")
         query_Xueqin = (query_pattern + ' where author="Xueqin Cao"')
         mycursor.execute(query_Xueqin)
         self.assertEqual(mycursor.fetchall(), expected_result_Xueqin)
@@ -257,6 +259,8 @@ class MyTest(unittest.TestCase):
         query_Descartes = (query_pattern + ' where author="René Descartes"')
         mycursor.execute(query_Descartes)
         self.assertEqual(mycursor.fetchall(), expected_result_Descartes)
+        mycursor = MY_DB.cursor()
+        mycursor.execute("drop database library_test;")
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(failfast=True)

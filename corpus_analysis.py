@@ -262,12 +262,12 @@ MY_DB = mysql.connector.connect(
     passwd="root",
     charset='utf8'
 )
-def insert_book_db(book, word_curve_fit, zh_character_curve_fit):
+def insert_book_db(book, word_curve_fit, zh_character_curve_fit, db="library"):
     '''
     Insert data into db
     '''
     mycursor = MY_DB.cursor()
-    mycursor.execute("use library;")
+    mycursor.execute("use " + db + ";")
     sql = """INSERT IGNORE corpus (title,
     author,
     slope,
@@ -349,15 +349,15 @@ def insert_book_db(book, word_curve_fit, zh_character_curve_fit):
     mycursor.execute(sql, val)
     MY_DB.commit()
     print("1 record inserted, ID:", mycursor.lastrowid)
-def create_database():
+def create_database(db="library"):
     '''
     Create database if it doesn't exists yet.
     '''
     mycursor = MY_DB.cursor()
-    mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
+    mycursor.execute("CREATE DATABASE IF NOT EXISTS " + db + ";")
     mycursor.execute(
-        "ALTER DATABASE library CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-    mycursor.execute("USE library;")
+        "ALTER DATABASE " + db + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+    mycursor.execute("USE " + db + ";")
     mycursor.execute(
         """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255),
@@ -434,75 +434,72 @@ def runbackup(hostname,
         print ex
         print("Backup failed for", hostname)
 # Main function
-def analyse_book(ebook, samples=10, check_db=False):
+def analyse_book(ebook, samples=10):
     '''
     Analyse individual book.
     You can insert into db or into json afterwards
     '''
-    if ebook.endswith(".epub"):
-        ebook_bytes = os.path.getsize(ebook)
-        if ebook_bytes >= 800000 and check_db:
-            print "Ebook too big. Next."
-            return False
-        try:
-            my_book = Book(ebook)
-        except Exception as ex:
-            print ex
-            return False
-        if check_db:
-            print "Checking if book exists in database"
-            if is_book_in_db(my_book.title, my_book.author):
-                return False
-        my_book.extract_text()
-        my_book.detect_language()
-        my_book.tokenize()
-        sweep_values = lexical_sweep(my_book.tokens,
-                                     samples,
-                                     log_x=True,
-                                     log_y=True)
-        try:
-            word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-        except TypeError as ex:
-            print ex
-            return False
-        sweep_values = lexical_sweep(my_book.zh_characters,
-                                     samples,
-                                     log_x=True,
-                                     log_y=False)
-        try:
-            zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-        except TypeError as ex:
-            print ex
-            return False
-        return my_book, word_curve_fit, zh_character_curve_fit
-    return False
+    my_book = Book(ebook)
+    my_book.extract_text()
+    my_book.detect_language()
+    my_book.tokenize()
+    sweep_values = lexical_sweep(my_book.tokens,
+                                 samples,
+                                 log_x=True,
+                                 log_y=True)
+    try:
+        word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+    except TypeError as ex:
+        print ex
+        return False
+    sweep_values = lexical_sweep(my_book.zh_characters,
+                                 samples,
+                                 log_x=True,
+                                 log_y=False)
+    try:
+        zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+    except TypeError as ex:
+        print ex
+        return False
+    return my_book, word_curve_fit, zh_character_curve_fit
 
-def analyse_books(argv):
+def analyse_books(argv, db):
     '''
     Main function: open and read all epub files in directory.
     Analyze them and populate data in database
     :param argv: command line args.
     '''
-    create_database()
+    create_database(db)
     books_analyzed = 0
     for dirpath, __, files in os.walk(str(argv[1])):
         for ebook in files:
-            try:
-                my_book, word_curve_fit, zh_character_curve_fit = analyse_book(dirpath +
-                                                                               '/' +
-                                                                               ebook)
-            except TypeError as ex:
-                print ex
-                continue
-            print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-            print "Writing to database"
-            insert_book_db(my_book, word_curve_fit, zh_character_curve_fit)
-            books_analyzed += 1
-            if len(argv) == 3:
-                runbackup("localhost", "root", "root", str(argv[2]))
-            else:
-                runbackup("localhost", "root", "root")
+            if ebook.endswith(".epub"):
+                ebook_bytes = os.path.getsize(dirpath + ebook)
+                if db == "library" and ebook_bytes >= 800000:
+                    print "Ebook " + dirpath + ebook + " too big. Next."
+                    continue
+                my_book = Book(dirpath + ebook)
+                if db == "library":
+                    print "Checking if book exists in database"
+                    if is_book_in_db(my_book.title, my_book.author):
+                        continue
+                try:
+                    result = analyse_book(dirpath + ebook)
+                    if not result:
+                        continue
+                except TypeError as ex:
+                    print ex
+                    continue
+                my_book, word_curve_fit, zh_character_curve_fit = result[0], result[1], result[2]
+                print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
+                print "Writing to database"
+                insert_book_db(my_book, word_curve_fit, zh_character_curve_fit, db)
+                books_analyzed += 1
+                if len(argv) == 3:
+                    runbackup("localhost", "root", "root", str(argv[2]))
+                else:
+                    runbackup("localhost", "root", "root")
     MY_DB.close()
 
 if __name__ == '__main__':
-    analyse_books(sys.argv)
+    analyse_books(sys.argv, "library")
