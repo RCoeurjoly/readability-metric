@@ -4,4 +4,5 @@ share/
 lib/
 local/
 bin/
+db/
 *.pyc
