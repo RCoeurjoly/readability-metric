@@ -495,11 +495,11 @@ def analyse_books(argv, db):
                 print "Writing to database"
                 insert_book_db(my_book, word_curve_fit, zh_character_curve_fit, db)
                 books_analyzed += 1
-                if len(argv) == 3:
-                    runbackup("localhost", "root", "root", str(argv[2]))
-                else:
-                    runbackup("localhost", "root", "root")
     MY_DB.close()
 
 if __name__ == '__main__':
     analyse_books(sys.argv, "library")
+    if len(argv) == 3:
+        runbackup("localhost", "root", "root", str(sys.argv[2]))
+    else:
+        runbackup("localhost", "root", "root")
