@@ -2,6 +2,7 @@
 '''
 Unit testing for the corpus analysis
 '''
+import timeout_decorator
 import unittest
 import json
 import mysql
@@ -13,7 +14,7 @@ class MyTest(unittest.TestCase):
     '''
     Class
     '''
-
+    @timeout_decorator.timeout(1)
     def test_metadata(self):
         '''
         Given a certain book, test metadata
@@ -36,6 +37,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.date, benchmark['date'].encode('utf-8'))
                 print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
+    @timeout_decorator.timeout(19)
     def test_language(self):
         '''
         Given a certain book, test language
@@ -49,6 +51,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
+    @timeout_decorator.timeout(50)
     def test_tokens(self):
         '''
         Given a certain book, test language
@@ -66,6 +69,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.unique_characters, benchmark['unique_zh_characters'])
                 print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
+    @timeout_decorator.timeout(145)
     def test_fit(self):
         '''
         Given a certain book, test language
@@ -99,6 +103,7 @@ class MyTest(unittest.TestCase):
                                  benchmark['zh_character_curve_fit_std_error_intercept'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 
+    @timeout_decorator.timeout(260)
     def test_db_writing(self):
         '''
         Write all books to database

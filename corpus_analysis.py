@@ -228,9 +228,9 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
                 len(text) - 1,
                 log_step):
             if log_x:
-                x_sample = log(len(text[0:sample_size]))
+                x_sample = log(sample_size)
             else:
-                x_sample = len(text[0:sample_size])
+                x_sample = sample_size
             if log_y:
                 y_sample = log(len(set(text[0:sample_size])))
             else:
