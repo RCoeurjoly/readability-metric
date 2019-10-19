@@ -477,11 +477,11 @@ def analyse_books(argv, db):
     for dirpath, __, files in os.walk(str(argv[1])):
         for ebook in files:
             if ebook.endswith(".epub"):
-                ebook_bytes = os.path.getsize(dirpath + '/' + ebook)
-                if db == "library" and ebook_bytes >= 800000:
-                    print "Ebook " + dirpath + '/' + ebook + " too big. Next."
+                try:
+                    my_book = Book(dirpath + '/' + ebook)
+                except KeyError as ex:
+                    print ex
                     continue
-                my_book = Book(dirpath + '/' + ebook)
                 if db == "library":
                     print "Checking if book exists in database"
                     if is_book_in_db(my_book.title, my_book.author):
