@@ -502,7 +502,7 @@ def analyse_books(argv, db):
 
 if __name__ == '__main__':
     analyse_books(sys.argv, "library")
-    if len(argv) == 3:
+    if len(sys.argv) == 3:
         runbackup("localhost", "root", "root", str(sys.argv[2]))
     else:
         runbackup("localhost", "root", "root")
