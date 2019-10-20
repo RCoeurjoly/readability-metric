@@ -498,14 +498,15 @@ def analyse_books(argv, db):
                 print "Writing to database"
                 insert_book_db(my_book, word_curve_fit, zh_character_curve_fit, db)
                 books_analyzed += 1
+                if len(sys.argv) == 3:
+                    if str(sys.argv[2]).endswith(".sql"):
+                        runbackup("localhost", "root", "root", str(sys.argv[2]))
+                else:
+                    runbackup("localhost", "root", "root")
     MY_DB.close()
 
 if __name__ == '__main__':
     analyse_books(sys.argv, "library")
-    if len(sys.argv) == 3:
-        runbackup("localhost", "root", "root", str(sys.argv[2]))
-    else:
-        runbackup("localhost", "root", "root")
 
  #+END_SRC
 
@@ -733,7 +734,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test metadata
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -756,7 +757,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -770,7 +771,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -788,7 +789,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -1047,7 +1048,7 @@ with open('benchmarks.json', 'w') as outfile:
 ** Downloading books for benchmark
 
 #+BEGIN_SRC shell :exports code :tangle download_benchmark.sh
-mkdir db
+mkdir test/db
 mkdir test/books
 wget https://www.gutenberg.org/ebooks/24264.epub.noimages?session_id=13a48cb17a2a788bd0df32eb9d11b2cc90e5ffb6 -O test/books/hongloumeng.epub
 wget https://www.gutenberg.org/ebooks/6099.epub.noimages?session_id=e525c6c0f4f2faf96f365aabedf179ef08f4f236 -O test/books/lesfleursdumal.epub
@@ -1263,7 +1264,7 @@ def is_book_in_db(title, author):
 def runbackup(hostname,
               mysql_user,
               mysql_password,
-              db_loc="/media/root/terabyte/Metatron/library.sql"):
+              db_loc="test/db/library_test.db"):
     '''
     Write sql file.
     '''

@@ -15,9 +15,7 @@ jobs:
         python-version: 2.7
     - name: Install dependencies
       run: |
-        sudo apt install default-libmysqlclient-dev
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        make install
     - name: Lint with flake8
       run: |
         pip install flake8
@@ -27,5 +25,4 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        bash download_benchmark.sh
-        python test_corpus_analysis.py
+        make test

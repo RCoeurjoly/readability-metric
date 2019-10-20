@@ -19,7 +19,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test metadata
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -42,7 +42,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -56,7 +56,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
@@ -74,7 +74,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test language
         '''
-        with open("test/benchmarks.json", "r") as test_cases:
+        with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))

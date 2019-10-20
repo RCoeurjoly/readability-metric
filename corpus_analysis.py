@@ -413,7 +413,7 @@ def is_book_in_db(title, author):
 def runbackup(hostname,
               mysql_user,
               mysql_password,
-              db_loc="/media/root/terabyte/Metatron/library.sql"):
+              db_loc="test/db/library_test.db"):
     '''
     Write sql file.
     '''
@@ -495,11 +495,12 @@ def analyse_books(argv, db):
                 print "Writing to database"
                 insert_book_db(my_book, word_curve_fit, zh_character_curve_fit, db)
                 books_analyzed += 1
+                if len(sys.argv) == 3:
+                    if str(sys.argv[2]).endswith(".sql"):
+                        runbackup("localhost", "root", "root", str(sys.argv[2]))
+                else:
+                    runbackup("localhost", "root", "root")
     MY_DB.close()
 
 if __name__ == '__main__':
     analyse_books(sys.argv, "library")
-    if len(sys.argv) == 3:
-        runbackup("localhost", "root", "root", str(sys.argv[2]))
-    else:
-        runbackup("localhost", "root", "root")
