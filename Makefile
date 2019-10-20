@@ -1,5 +1,5 @@
 clean:
-	rm -rf test/
+	rm -rf test
 
 isort:
 	sh -c "isort --skip-glob=.tox --recursive . "
@@ -21,7 +21,7 @@ install:
 	python -m pip install --upgrade pip
 	pip install -r requirements.txt
 
-download_test_assets:
+download_test_assets: clean
 	mkdir test/
 	mkdir test/db
 	mkdir test/books

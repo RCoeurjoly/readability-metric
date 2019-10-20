@@ -393,20 +393,19 @@ def create_database(db="library"):
             "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
     except Exception as ex:
         print ex
-def is_book_in_db(title, author):
+def is_book_in_db(my_book, db):
     '''
     Check if book is in database.
     '''
     mycursor = MY_DB.cursor()
-    mycursor.execute("CREATE DATABASE IF NOT EXISTS library;")
-    mycursor.execute("USE library;")
-    query = ('SELECT * from corpus where title="' + str(title)
-             + '" and author="' + str(author) + '"')
+    mycursor.execute("USE " + db + ";")
+    query = ('SELECT * from corpus where title="' + str(my_book.title)
+             + '" and author="' + str(my_book.author) + '"')
     mycursor.execute(query)
     mycursor.fetchall()
     if mycursor.rowcount == 1:
-        print ("Book " + str(title)
-               + ", by " + str(author)
+        print ("Book " + str(my_book.title)
+               + ", by " + str(my_book.author)
                + " already in database. Next.")
         return True
     return False
@@ -439,68 +438,61 @@ def analyse_book(ebook, samples=10):
     Analyse individual book.
     You can insert into db or into json afterwards
     '''
-    my_book = Book(ebook)
-    my_book.extract_text()
-    my_book.detect_language()
-    my_book.tokenize()
-    sweep_values = lexical_sweep(my_book.tokens,
-                                 samples,
-                                 log_x=True,
-                                 log_y=True)
     try:
+        my_book = Book(ebook)
+        my_book.extract_text()
+        my_book.detect_language()
+        my_book.tokenize()
+        sweep_values = lexical_sweep(my_book.tokens,
+                                     samples,
+                                     log_x=True,
+                                     log_y=True)
         word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-    except TypeError as ex:
-        print ex
-        return False
-    sweep_values = lexical_sweep(my_book.zh_characters,
-                                 samples,
-                                 log_x=True,
-                                 log_y=False)
-    try:
+        sweep_values = lexical_sweep(my_book.zh_characters,
+                                     samples,
+                                     log_x=True,
+                                     log_y=False)
         zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+
+        return my_book, word_curve_fit, zh_character_curve_fit
     except TypeError as ex:
         print ex
         return False
-    return my_book, word_curve_fit, zh_character_curve_fit
 
-def analyse_books(argv, db):
+def analyse_directory(argv, db):
     '''
     Main function: open and read all epub files in directory.
     Analyze them and populate data in database
     :param argv: command line args.
     '''
+    if db == "library":
+        db_file = "/media/root/terabyte/Metatron/library.sql"
+    else:
+        db_file = "test/db/library.db"
     create_database(db)
     books_analyzed = 0
-    for dirpath, __, files in os.walk(str(argv[1])):
+    corpus_path = str(argv[1])
+    for dirpath, __, files in os.walk(corpus_path):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
                     my_book = Book(dirpath + '/' + ebook)
-                except KeyError as ex:
-                    print ex
-                    continue
-                if db == "library":
                     print "Checking if book exists in database"
-                    if is_book_in_db(my_book.title, my_book.author):
+                    if is_book_in_db(my_book, db):
                         continue
-                try:
+                    print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
                     result = analyse_book(dirpath + '/' + ebook)
                     if not result:
                         continue
-                except TypeError as ex:
+                    my_book, word_curve_fit, zh_char_curve_fit = result[0], result[1], result[2]
+                    print "Writing to database"
+                    insert_book_db(my_book, word_curve_fit, zh_char_curve_fit, db)
+                    books_analyzed += 1
+                    runbackup("localhost", "root", "root", db_file)
+                except (KeyError, TypeError) as ex:
                     print ex
                     continue
-                my_book, word_curve_fit, zh_character_curve_fit = result[0], result[1], result[2]
-                print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-                print "Writing to database"
-                insert_book_db(my_book, word_curve_fit, zh_character_curve_fit, db)
-                books_analyzed += 1
-                if len(sys.argv) == 3:
-                    if str(sys.argv[2]).endswith(".sql"):
-                        runbackup("localhost", "root", "root", str(sys.argv[2]))
-                else:
-                    runbackup("localhost", "root", "root")
     MY_DB.close()
 
 if __name__ == '__main__':
-    analyse_books(sys.argv, "library")
+    analyse_directory(sys.argv, "library")

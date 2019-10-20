@@ -8,7 +8,7 @@ import json
 import mysql
 from decimal import *
 from ebooklib import epub
-from corpus_analysis import Book, lexical_sweep, extract_fit_parameters, linear_func, analyse_books
+from corpus_analysis import Book, lexical_sweep, extract_fit_parameters, linear_func, analyse_directory
 
 class MyTest(unittest.TestCase):
     '''
@@ -237,31 +237,31 @@ class MyTest(unittest.TestCase):
         mycursor = MY_DB.cursor()
         mycursor.execute("DROP DATABASE IF EXISTS library_test;")
         my_args = ["lol", "test/", "db/library_test.db"]
-        analyse_books(my_args, "library_test")
+        analyse_directory(my_args, "library_test")
         mycursor = MY_DB.cursor()
         mycursor.execute("USE library_test;")
-        query_Xueqin = (query_pattern + ' where author="Xueqin Cao"')
+        query_Xueqin = (query_pattern + ' where author="Xueqin Cao";')
         mycursor.execute(query_Xueqin)
         self.assertEqual(mycursor.fetchall(), expected_result_Xueqin)
-        query_Collodi = (query_pattern + ' where author="Carlo Collodi"')
+        query_Collodi = (query_pattern + ' where author="Carlo Collodi";')
         mycursor.execute(query_Collodi)
         self.assertEqual(mycursor.fetchall(), expected_result_Collodi)
-        query_Goethe = (query_pattern + ' where author="Johann Wolfgang von Goethe"')
+        query_Goethe = (query_pattern + ' where author="Johann Wolfgang von Goethe";')
         mycursor.execute(query_Goethe)
         self.assertEqual(mycursor.fetchall(), expected_result_Goethe)
-        query_Melville = (query_pattern + ' where author="Herman Melville"')
+        query_Melville = (query_pattern + ' where author="Herman Melville";')
         mycursor.execute(query_Melville)
         self.assertEqual(mycursor.fetchall(), expected_result_Melville)
-        query_Defoe = (query_pattern + ' where author="Daniel Defoe"')
+        query_Defoe = (query_pattern + ' where author="Daniel Defoe";')
         mycursor.execute(query_Defoe)
         self.assertEqual(mycursor.fetchall(), expected_result_Defoe)
-        query_Baudelaire = (query_pattern + ' where author="Charles Baudelaire"')
+        query_Baudelaire = (query_pattern + ' where author="Charles Baudelaire";')
         mycursor.execute(query_Baudelaire)
         self.assertEqual(mycursor.fetchall(), expected_result_Baudelaire)
-        query_Saavedra = (query_pattern + ' where author="Miguel de Cervantes Saavedra"')
+        query_Saavedra = (query_pattern + ' where author="Miguel de Cervantes Saavedra";')
         mycursor.execute(query_Saavedra)
         self.assertEqual(mycursor.fetchall(), expected_result_Saavedra)
-        query_Descartes = (query_pattern + ' where author="René Descartes"')
+        query_Descartes = (query_pattern + ' where author="René Descartes";')
         mycursor.execute(query_Descartes)
         self.assertEqual(mycursor.fetchall(), expected_result_Descartes)
         mycursor = MY_DB.cursor()
