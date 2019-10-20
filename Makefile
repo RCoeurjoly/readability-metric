@@ -14,7 +14,7 @@ run: source
 	python /home/rcl/readability-measure/corpus_analysis.py /media/root/terabyte
 
 source:
-	. ./bin/activate
+	. bin/activate
 
 install:
 	sudo apt install default-libmysqlclient-dev
