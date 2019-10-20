@@ -18,8 +18,8 @@ source:
 
 install:
 	sudo apt install default-libmysqlclient-dev
-  python -m pip install --upgrade pip
-  pip install -r requirements.txt
+	python -m pip install --upgrade pip
+	pip install -r requirements.txt
 
 download_test_assets:
 	mkdir test/
