@@ -412,6 +412,7 @@ def is_book_in_db(my_book, db):
 def runbackup(hostname,
               mysql_user,
               mysql_password,
+              db,
               db_loc="test/db/library_test.db"):
     '''
     Write sql file.
@@ -420,7 +421,8 @@ def runbackup(hostname,
         backup = subprocess.Popen("mysqldump -h"
                                   + hostname + " -u"
                                   + mysql_user + " -p'"
-                                  + mysql_password + "' --databases library > "
+                                  + mysql_password + "' --databases "
+                                  + db + " > "
                                   + db_loc, shell=True)
         # Wait for completion
         backup.communicate()
@@ -488,7 +490,7 @@ def analyse_directory(argv, db):
                     print "Writing to database"
                     insert_book_db(my_book, word_curve_fit, zh_char_curve_fit, db)
                     books_analyzed += 1
-                    runbackup("localhost", "root", "root", db_file)
+                    runbackup("localhost", "root", "root", db, db_file)
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
