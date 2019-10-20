@@ -123,25 +123,30 @@ class Book(object):
             self.date = ''
         self.language = str()
         self.zh_characters = str()
+        #self.zh_characters = tuple()
         self.character_count = int()
         self.unique_characters = int()
         self.tokens = str()
+        #self.tokens = tuple() Ran 1 test in 20.855s
         self.word_count = int()
         self.unique_words = int()
         self.text = str()
+        #self.text = tuple()
     def tokenize(self):
         '''
         Tokenization.
         '''
         if not self.tokens:
             self.extract_text()
+        if not self.language:
+            self.detect_language()
         if self.language == 'zh' or self.language == 'zh_Hant':
             self.zh_characters = ''.join(character for character in self.text
                                          if u'\u4e00' <= character <= u'\u9fff')
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         else:
-            self.zh_characters = str()
+            self.zh_characters = tuple()
             self.character_count = int()
             self.unique_characters = int()
         self.tokens = Text(self.text).words
@@ -172,17 +177,17 @@ class Book(object):
         '''
         Release text.
         '''
-        self.text = str()
+        self.text = tuple()
     def release_zh_characters(self):
         '''
         Release Chinese characters.
         '''
-        self.zh_characters = str()
+        self.zh_characters = tuple()
     def release_tokens(self):
         '''
         Release tokens.
         '''
-        self.tokens = str()
+        self.tokens = tuple()
 # Functions
 def clean_non_printable(text):
     '''
@@ -190,14 +195,20 @@ def clean_non_printable(text):
     '''
     return ''.join(character for character in text if unicodedata.category(character) in PRINTABLE)
 ## Curve fitting functions
-def extract_fit_parameters(function, sweep_values):
+def extract_fit_parameters(function, sweep_values, log_x=False, log_y=False):
     '''
     Curve fit.
     '''
     if sweep_values:
         array = list(zip(*sweep_values))
-        xarr = array[0]
-        yarr = array[1]
+        if log_x:
+            xarr = log(array[0])
+        else:
+            xarr = array[0]
+        if log_y:
+            yarr = log(array[1])
+        else:
+            yarr = array[1]
         initial_a = 0
         initial_b = 0
         popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
@@ -214,7 +225,7 @@ def extract_fit_parameters(function, sweep_values):
             'slope': int(),
             'std_error_intercept': int(),
             'std_error_slope': int()}
-def lexical_sweep(text, samples=10, log_x=False, log_y=False):
+def lexical_sweep(text, samples=10):
     '''
     Lexical sweep.
     '''
@@ -227,14 +238,8 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
                 log_behaviour_start,
                 len(text) - 1,
                 log_step):
-            if log_x:
-                x_sample = log(sample_size)
-            else:
-                x_sample = sample_size
-            if log_y:
-                y_sample = log(len(set(text[0:sample_size])))
-            else:
-                y_sample = len(set(text[0:sample_size]))
+            x_sample = sample_size
+            y_sample = len(set(text[0:sample_size]))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
     return False
@@ -442,20 +447,19 @@ def analyse_book(ebook, samples=10):
     '''
     try:
         my_book = Book(ebook)
-        my_book.extract_text()
-        my_book.detect_language()
         my_book.tokenize()
         sweep_values = lexical_sweep(my_book.tokens,
-                                     samples,
-                                     log_x=True,
-                                     log_y=True)
-        word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+                                     samples)
+        word_curve_fit = extract_fit_parameters(linear_func,
+                                                sweep_values,
+                                                log_x=True,
+                                                log_y=True)
         sweep_values = lexical_sweep(my_book.zh_characters,
-                                     samples,
-                                     log_x=True,
-                                     log_y=False)
-        zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-
+                                     samples)
+        zh_character_curve_fit = extract_fit_parameters(linear_func,
+                                                        sweep_values,
+                                                        log_x=True,
+                                                        log_y=False)
         return my_book, word_curve_fit, zh_character_curve_fit
     except TypeError as ex:
         print ex

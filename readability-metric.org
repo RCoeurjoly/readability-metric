@@ -85,7 +85,7 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
    Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def lexical_sweep(text, samples=10, log_x=False, log_y=False):
+def lexical_sweep(text, samples=10):
     '''
     Lexical sweep.
     '''
@@ -98,14 +98,8 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
                 log_behaviour_start,
                 len(text) - 1,
                 log_step):
-            if log_x:
-                x_sample = log(sample_size)
-            else:
-                x_sample = sample_size
-            if log_y:
-                y_sample = log(len(set(text[0:sample_size])))
-            else:
-                y_sample = len(set(text[0:sample_size]))
+            x_sample = sample_size
+            y_sample = len(set(text[0:sample_size]))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
     return False
@@ -113,14 +107,20 @@ def lexical_sweep(text, samples=10, log_x=False, log_y=False):
 
 #+NAME: curve-fit
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def extract_fit_parameters(function, sweep_values):
+def extract_fit_parameters(function, sweep_values, log_x=False, log_y=False):
     '''
     Curve fit.
     '''
     if sweep_values:
         array = list(zip(*sweep_values))
-        xarr = array[0]
-        yarr = array[1]
+        if log_x:
+            xarr = log(array[0])
+        else:
+            xarr = array[0]
+        if log_y:
+            yarr = log(array[1])
+        else:
+            yarr = array[1]
         initial_a = 0
         initial_b = 0
         popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
@@ -256,12 +256,15 @@ def __init__(self, epub_filename):
         self.date = ''
     self.language = str()
     self.zh_characters = str()
+    #self.zh_characters = tuple()
     self.character_count = int()
     self.unique_characters = int()
     self.tokens = str()
+    #self.tokens = tuple() Ran 1 test in 20.855s
     self.word_count = int()
     self.unique_words = int()
     self.text = str()
+    #self.text = tuple()
 #+END_SRC
 *** Extracting text from ebook
 #+NAME: text-extraction
@@ -358,13 +361,15 @@ def tokenize(self):
     '''
     if not self.tokens:
         self.extract_text()
+    if not self.language:
+        self.detect_language()
     if self.language == 'zh' or self.language == 'zh_Hant':
         self.zh_characters = ''.join(character for character in self.text
                                      if u'\u4e00' <= character <= u'\u9fff')
         self.character_count = len(self.zh_characters)
         self.unique_characters = len(set(self.zh_characters))
     else:
-        self.zh_characters = str()
+        self.zh_characters = tuple()
         self.character_count = int()
         self.unique_characters = int()
     self.tokens = Text(self.text).words
@@ -379,7 +384,7 @@ def release_text(self):
     '''
     Release text.
     '''
-    self.text = str()
+    self.text = tuple()
 #+END_SRC
 #+NAME: release-zh-characters
 #+BEGIN_SRC python :noweb yes :session python :exports code
@@ -387,7 +392,7 @@ def release_zh_characters(self):
     '''
     Release Chinese characters.
     '''
-    self.zh_characters = str()
+    self.zh_characters = tuple()
     #+END_SRC
 #+NAME: release-tokens
 #+BEGIN_SRC python :noweb yes :session python :exports code
@@ -395,7 +400,7 @@ def release_tokens(self):
     '''
     Release tokens.
     '''
-    self.tokens = str()
+    self.tokens = tuple()
 #+END_SRC
 
 ** Vocabulary coverage
@@ -444,20 +449,19 @@ def analyse_book(ebook, samples=10):
     '''
     try:
         my_book = Book(ebook)
-        my_book.extract_text()
-        my_book.detect_language()
         my_book.tokenize()
         sweep_values = lexical_sweep(my_book.tokens,
-                                     samples,
-                                     log_x=True,
-                                     log_y=True)
-        word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+                                     samples)
+        word_curve_fit = extract_fit_parameters(linear_func,
+                                                sweep_values,
+                                                log_x=True,
+                                                log_y=True)
         sweep_values = lexical_sweep(my_book.zh_characters,
-                                     samples,
-                                     log_x=True,
-                                     log_y=False)
-        zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-
+                                     samples)
+        zh_character_curve_fit = extract_fit_parameters(linear_func,
+                                                        sweep_values,
+                                                        log_x=True,
+                                                        log_y=False)
         return my_book, word_curve_fit, zh_character_curve_fit
     except TypeError as ex:
         print ex
@@ -745,7 +749,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.date, benchmark['date'].encode('utf-8'))
                 print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(19)
+    @timeout_decorator.timeout(13)
     def test_language(self):
         '''
         Given a certain book, test language
@@ -759,17 +763,15 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(50)
+    @timeout_decorator.timeout(25)
     def test_tokens(self):
         '''
-        Given a certain book, test language
+        Given a certain book, test tokens
         '''
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
-                my_book.extract_text()
-                my_book.detect_language()
                 my_book.tokenize()
                 self.assertEqual(my_book.word_count, benchmark['word_count'])
                 self.assertEqual(my_book.unique_words, benchmark['unique_words'])
@@ -777,22 +779,33 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.unique_characters, benchmark['unique_zh_characters'])
                 print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(145)
+    @timeout_decorator.timeout(50)
+    def test_sweep(self):
+        '''
+        Given a certain book, test sweep
+        '''
+        my_book = Book("test/books/hongloumeng.epub")
+        my_book.tokenize()
+        sweep_values = lexical_sweep(my_book.tokens)
+        zh_sweep_values = lexical_sweep(my_book.zh_characters)
+        print sweep_values
+        print zh_sweep_values
+        self.assertEqual(True, True)
+
+    @timeout_decorator.timeout(88)
     def test_fit(self):
         '''
-        Given a certain book, test language
+        Given a certain book, test fit
         '''
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
-                my_book.extract_text()
-                my_book.detect_language()
                 my_book.tokenize()
-                sweep_values = lexical_sweep(my_book.tokens, samples=10, log_x=True, log_y=True)
-                word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-                sweep_values = lexical_sweep(my_book.zh_characters, samples=10, log_x=True)
-                zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+                sweep_values = lexical_sweep(my_book.tokens, samples=10)
+                word_curve_fit = extract_fit_parameters(linear_func, sweep_values, log_x=True, log_y=True)
+                sweep_values = lexical_sweep(my_book.zh_characters, samples=10)
+                zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values, log_x=True)
                 self.assertEqual(float(word_curve_fit['slope']),
                                  benchmark['word_curve_fit_slope'])
                 self.assertEqual(float(word_curve_fit['intercept']),

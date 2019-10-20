@@ -37,7 +37,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.date, benchmark['date'].encode('utf-8'))
                 print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(19)
+    @timeout_decorator.timeout(13)
     def test_language(self):
         '''
         Given a certain book, test language
@@ -51,17 +51,15 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(50)
+    @timeout_decorator.timeout(25)
     def test_tokens(self):
         '''
-        Given a certain book, test language
+        Given a certain book, test tokens
         '''
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
-                my_book.extract_text()
-                my_book.detect_language()
                 my_book.tokenize()
                 self.assertEqual(my_book.word_count, benchmark['word_count'])
                 self.assertEqual(my_book.unique_words, benchmark['unique_words'])
@@ -69,22 +67,33 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.unique_characters, benchmark['unique_zh_characters'])
                 print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(145)
+    @timeout_decorator.timeout(50)
+    def test_sweep(self):
+        '''
+        Given a certain book, test sweep
+        '''
+        my_book = Book("test/books/hongloumeng.epub")
+        my_book.tokenize()
+        sweep_values = lexical_sweep(my_book.tokens)
+        zh_sweep_values = lexical_sweep(my_book.zh_characters)
+        print sweep_values
+        print zh_sweep_values
+        self.assertEqual(True, True)
+
+    @timeout_decorator.timeout(88)
     def test_fit(self):
         '''
-        Given a certain book, test language
+        Given a certain book, test fit
         '''
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['path'].encode('utf-8'))
-                my_book.extract_text()
-                my_book.detect_language()
                 my_book.tokenize()
-                sweep_values = lexical_sweep(my_book.tokens, samples=10, log_x=True, log_y=True)
-                word_curve_fit = extract_fit_parameters(linear_func, sweep_values)
-                sweep_values = lexical_sweep(my_book.zh_characters, samples=10, log_x=True)
-                zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values)
+                sweep_values = lexical_sweep(my_book.tokens, samples=10)
+                word_curve_fit = extract_fit_parameters(linear_func, sweep_values, log_x=True, log_y=True)
+                sweep_values = lexical_sweep(my_book.zh_characters, samples=10)
+                zh_character_curve_fit = extract_fit_parameters(linear_func, sweep_values, log_x=True)
                 self.assertEqual(float(word_curve_fit['slope']),
                                  benchmark['word_curve_fit_slope'])
                 self.assertEqual(float(word_curve_fit['intercept']),
