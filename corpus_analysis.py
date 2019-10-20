@@ -122,16 +122,13 @@ class Book(object):
         except (IndexError, AttributeError):
             self.date = ''
         self.language = str()
-        self.zh_characters = str()
-        #self.zh_characters = tuple()
+        self.zh_characters = tuple()
         self.character_count = int()
         self.unique_characters = int()
-        self.tokens = str()
-        #self.tokens = tuple() Ran 1 test in 20.855s
+        self.tokens = tuple()
         self.word_count = int()
         self.unique_words = int()
-        self.text = str()
-        #self.text = tuple()
+        self.text = tuple()
     def tokenize(self):
         '''
         Tokenization.
