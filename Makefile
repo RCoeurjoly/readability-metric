@@ -7,7 +7,7 @@ isort:
 lint:
 	flake8 --exclude=.tox
 
-test: clean download_test_assets source
+test: clean download_test_assets
 	python test_corpus_analysis.py
 
 run: source
