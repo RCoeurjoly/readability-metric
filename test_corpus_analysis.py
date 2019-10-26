@@ -112,7 +112,7 @@ class MyTest(unittest.TestCase):
                                  benchmark['zh_character_curve_fit_std_error_intercept'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(90)
+    @timeout_decorator.timeout(900)
     def test_db_writing(self):
         '''
         Write all books to database

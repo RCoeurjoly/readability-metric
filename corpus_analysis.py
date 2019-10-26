@@ -11,6 +11,7 @@ import os
 import math
 import subprocess
 import ebooklib
+import pymongo
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
@@ -18,6 +19,7 @@ from scipy import log as log
 import numpy as np
 import mysql.connector
 from polyglot.text import Text
+from nltk import FreqDist
 # Constants
 PRINTABLE = {
     #'Cc',
@@ -122,9 +124,6 @@ class Book(object):
         except (IndexError, AttributeError):
             self.date = ''
         self.language = str()
-        self.zh_characters = tuple()
-        self.character_count = int()
-        self.unique_characters = int()
         self.tokens = tuple()
         self.word_count = int()
         self.unique_words = int()
@@ -138,17 +137,35 @@ class Book(object):
         if not self.language:
             self.detect_language()
         if self.language == 'zh' or self.language == 'zh_Hant':
+            self.zh_characters = tuple()
+            self.character_count = int()
+            self.unique_characters = int()
             self.zh_characters = ''.join(character for character in self.text
                                          if u'\u4e00' <= character <= u'\u9fff')
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         else:
+            print("No chinese characters")
             self.zh_characters = tuple()
             self.character_count = int()
             self.unique_characters = int()
         self.tokens = Text(self.text).words
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
+    def get_freq_dist(self):
+        '''
+        Frequency distribution for both .
+        '''
+        if not self.tokens:
+            self.tokenize()
+        if self.language == 'zh' or self.language == 'zh_Hant':
+            self.zh_char_freq_dist = dict()
+            self.zh_char_freq_dist = FreqDist(self.zh_characters)
+            clean_dots(self.zh_char_freq_dist)
+            del self.zh_char_freq_dist['.']
+        self.freq_dist = dict()
+        self.freq_dist = FreqDist(self.tokens)
+        del self.freq_dist['.']
     def extract_text(self):
         '''
         Extract all text from the book.
@@ -190,7 +207,12 @@ def clean_non_printable(text):
     '''
     Remove all non printable characters from string.
     '''
-    return ''.join(character for character in text if unicodedata.category(character) in PRINTABLE)
+    return ''.join(character for character in text if unicodedata.category(character) in PRINTABLE or character == '.' )
+def clean_dots(dictionary):
+    '''
+    Remove dot form dictionary.
+    '''
+    del dictionary['.']
 ## Curve fitting functions
 def extract_fit_parameters(function, sweep_values, log_x=False, log_y=False):
     '''
@@ -264,6 +286,9 @@ MY_DB = mysql.connector.connect(
     passwd="root",
     charset='utf8'
 )
+myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+mydb = myclient["library"]
+mycol = mydb["corpus"]
 def insert_book_db(book, word_curve_fit, zh_character_curve_fit, db="library"):
     '''
     Insert data into db
@@ -445,19 +470,25 @@ def analyse_book(ebook, samples=10):
     try:
         my_book = Book(ebook)
         my_book.tokenize()
+        my_book.get_freq_dist()
         sweep_values = lexical_sweep(my_book.tokens,
                                      samples)
         word_curve_fit = extract_fit_parameters(linear_func,
                                                 sweep_values,
                                                 log_x=True,
                                                 log_y=True)
-        sweep_values = lexical_sweep(my_book.zh_characters,
-                                     samples)
-        zh_character_curve_fit = extract_fit_parameters(linear_func,
-                                                        sweep_values,
-                                                        log_x=True,
-                                                        log_y=False)
-        return my_book, word_curve_fit, zh_character_curve_fit
+        if my_book.language == "zh" or my_book.language == "zh_Hant":
+            sweep_values = lexical_sweep(my_book.zh_characters,
+                                         samples)
+            zh_character_curve_fit = extract_fit_parameters(linear_func,
+                                                            sweep_values,
+                                                            log_x=True,
+                                                            log_y=False)
+            return my_book, word_curve_fit, zh_character_curve_fit
+        return my_book, word_curve_fit, {'intercept': int(),
+                                         'slope': int(),
+                                         'std_error_intercept': int(),
+                                         'std_error_slope': int()}
     except TypeError as ex:
         print ex
         return False
@@ -489,6 +520,10 @@ def analyse_directory(argv, db):
                         continue
                     my_book, word_curve_fit, zh_char_curve_fit = result[0], result[1], result[2]
                     print "Writing to database"
+                    #mycol.insert_one(my_book.__dict__)
+                    print("." in my_book.tokens)
+                    print("." in my_book.zh_characters)
+                    print("." in my_book.freq_dist)
                     insert_book_db(my_book, word_curve_fit, zh_char_curve_fit, db)
                     books_analyzed += 1
                     runbackup("localhost", "root", "root", db, db_file)
