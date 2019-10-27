@@ -10,6 +10,9 @@ lint:
 test: clean download_test_assets
 	python test_corpus_analysis.py
 
+test_without_download:
+	python test_corpus_analysis.py
+
 run: source
 	python /home/rcl/readability-measure/corpus_analysis.py /media/root/terabyte
 
@@ -21,7 +24,7 @@ install:
 	python -m pip install --upgrade pip
 	pip install -r requirements.txt
 
-download_test_assets: clean
+download_test_assets:
 	mkdir test/
 	mkdir test/db
 	mkdir test/books

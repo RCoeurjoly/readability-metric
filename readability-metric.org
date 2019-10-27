@@ -107,13 +107,21 @@ def lexical_sweep(text, samples=10):
 
 #+NAME: curve-fit
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def extract_fit_parameters(function, sweep_values, log_x=False, log_y=False):
+def extract_fit_parameters(self, analysis_type, sweep_values):
     '''
     Curve fit.
     '''
+    if analysis_type == "words":
+        log_x = True
+        log_y = True
+        function = linear_func
+    elif analysis_type == "characters":
+        log_x = True
+        log_y = False
+        function = linear_func
     if sweep_values:
         array = list(zip(*sweep_values))
-        if log_x:
+        if log_y:
             xarr = log(array[0])
         else:
             xarr = array[0]
@@ -129,14 +137,11 @@ def extract_fit_parameters(function, sweep_values, log_x=False, log_y=False):
         perr = np.sqrt(np.diag(pcov))
         std_error_slope = perr[0]
         std_error_intercept = perr[1]
-        return {'intercept': intercept,
-                'slope': slope,
-                'std_error_intercept': std_error_intercept,
-                'std_error_slope': std_error_slope}
-    return {'intercept': int(),
-            'slope': int(),
-            'std_error_intercept': int(),
-            'std_error_slope': int()}
+        self.fit = {'type': analysis_type,
+                    'intercept': intercept,
+                    'slope': slope,
+                    'std_error_intercept': std_error_intercept,
+                    'std_error_slope': std_error_slope}
 #+END_SRC
 
 #+RESULTS: lexical-sweep
@@ -170,7 +175,7 @@ def log_log_func(variable, coefficient, intercept):
    The rest is optional, so we catch them with care.
 
    We then use BeautifulSoup to remove all html marks.
-*** Class book
+*** Book class
 #+NAME: book-class
 #+BEGIN_SRC python :noweb yes :session python :exports code
 class Book(object):
@@ -187,79 +192,93 @@ class Book(object):
     <<release-text>>
     <<release-zh-characters>>
     <<release-tokens>>
+    <<curve-fit>>
+    <<delete-heavy-attributes>>
     #+end_src
 
-*** Extracting metadata
+*** Constructor
     We don't extract all text in constructor because it is expensive and we want to check first if it exists in database.
-#+NAME: constructor
+#+NAME: constructors
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def __init__(self, epub_filename):
+def __init__(self, epub_filename, samples):
     '''
     Init.
     '''
     # pylint: disable=too-many-statements
     # There is a lot of metadata but it is repetitive and non problematic.
-    self.filename = epub_filename
     epub_file = epub.read_epub(epub_filename)
-    try:
-        self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.epub_type = ''
-    try:
-        self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.subject = ''
-    try:
-        self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.source = ''
-    try:
-        self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.rights = ''
-    try:
-        self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.relation = ''
-    try:
-        self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.publisher = ''
-    #try:
-    #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
-    #except (IndexError, AttributeError):
-    #    self.language = 'empty'
-    try:
-        self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.identifier = ''
-    try:
-        self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.epub_format = ''
-    try:
-        self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.description = ''
-    try:
-        self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.coverage = ''
-    try:
-        self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.contributor = ''
     self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
     self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
-    try:
-        self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        self.date = ''
-    self.language = str()
-    self.tokens = tuple()
-    self.word_count = int()
-    self.unique_words = int()
-    self.text = tuple()
+    if samples:
+        self.filename = epub_filename
+        print "Extracting metadata"
+        try:
+            self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        #try:
+        #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
+        #except (IndexError, AttributeError):
+        #    pass
+        try:
+            self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        print "Tokenizing"
+        self.tokenize()
+        print "Freq dist"
+        self.get_freq_dist()
+        print "Lexical sweep for words"
+        sweep_values = lexical_sweep(my_book.tokens, samples)
+        print "Word fit"
+        self.extract_fit_parameters("words", sweep_values)
+        if self.language == "zh" or self.language == "zh_Hant":
+            print "Lexical sweep for characters"
+            sweep_values = lexical_sweep(self.zh_characters, samples)
+            print "Chinese fit"
+            self.extract_fit_parameters("characters", sweep_values)
+        print "Deleteing "
+        self.delete_heavy_attributes()
 #+END_SRC
 *** Extracting text from ebook
 #+NAME: text-extraction
@@ -276,7 +295,7 @@ def extract_text(self):
             raw_html = item.get_content()
             <<html-filtering>>
     cleantext = clean_non_printable(html_filtered)
-    self.text = cleantext
+    self.text = tuple(cleantext)
 #+END_SRC
 
 #+RESULTS: text-extraction
@@ -369,19 +388,12 @@ def tokenize(self):
     if not self.language:
         self.detect_language()
     if self.language == 'zh' or self.language == 'zh_Hant':
-        self.zh_characters = tuple()
-        self.character_count = int()
-        self.unique_characters = int()
-        self.zh_characters = ''.join(character for character in self.text
-                                     if u'\u4e00' <= character <= u'\u9fff')
+        self.zh_characters = tuple(''.join(character for character in self.text
+                                           if u'\u4e00' <= character <= u'\u9fff'))
         self.character_count = len(self.zh_characters)
         self.unique_characters = len(set(self.zh_characters))
-    else:
-        print("No chinese characters")
-        self.zh_characters = tuple()
-        self.character_count = int()
-        self.unique_characters = int()
-    self.tokens = Text(self.text).words
+    self.tokens = tuple(Text(self.text).words)
+    self.tokens.remove('.')
     self.word_count = len(self.tokens)
     self.unique_words = len(set(self.tokens))
 #+END_SRC
@@ -395,16 +407,13 @@ def get_freq_dist(self):
     if not self.tokens:
         self.tokenize()
     if self.language == 'zh' or self.language == 'zh_Hant':
-        self.zh_char_freq_dist = dict()
-        self.zh_char_freq_dist = FreqDist(self.zh_characters)
-        clean_dots(self.zh_char_freq_dist)
+        self.zh_char_freq_dist = dict(FreqDist(self.zh_characters))
         del self.zh_char_freq_dist['.']
-    self.freq_dist = dict()
-    self.freq_dist = FreqDist(self.tokens)
+    self.freq_dist = dict(FreqDist(self.tokens))
     del self.freq_dist['.']
 #+END_SRC
 
-*** Release text
+*** Release text and delete attributes
     I conjecturize that holding a lot of text in memory is very expensive.
 #+NAME: release-text
 #+BEGIN_SRC python :noweb yes :session python :exports code
@@ -429,6 +438,19 @@ def release_tokens(self):
     Release tokens.
     '''
     self.tokens = tuple()
+#+END_SRC
+#+NAME: delete-heavy-attributes
+#+BEGIN_SRC python :noweb yes :session python :exports code
+def delete_heavy_attributes(self):
+    '''
+    Delete heavy attributes.
+    '''
+    del self.text
+    del self.tokens
+    try:
+        del self.zh_characters
+    except AttributeError as ex:
+        print ex
 #+END_SRC
 
 ** Vocabulary coverage
@@ -470,37 +492,6 @@ print margin_unknowable_list
 ** Main
  #+NAME: main
  #+BEGIN_SRC python :noweb yes :session python :exports code
-def analyse_book(ebook, samples=10):
-    '''
-    Analyse individual book.
-    You can insert into db or into json afterwards
-    '''
-    try:
-        my_book = Book(ebook)
-        my_book.tokenize()
-        my_book.get_freq_dist()
-        sweep_values = lexical_sweep(my_book.tokens,
-                                     samples)
-        word_curve_fit = extract_fit_parameters(linear_func,
-                                                sweep_values,
-                                                log_x=True,
-                                                log_y=True)
-        if my_book.language == "zh" or my_book.language == "zh_Hant":
-            sweep_values = lexical_sweep(my_book.zh_characters,
-                                         samples)
-            zh_character_curve_fit = extract_fit_parameters(linear_func,
-                                                            sweep_values,
-                                                            log_x=True,
-                                                            log_y=False)
-            return my_book, word_curve_fit, zh_character_curve_fit
-        return my_book, word_curve_fit, {'intercept': int(),
-                                         'slope': int(),
-                                         'std_error_intercept': int(),
-                                         'std_error_slope': int()}
-    except TypeError as ex:
-        print ex
-        return False
-
 def analyse_directory(argv, db):
     '''
     Main function: open and read all epub files in directory.
@@ -518,21 +509,16 @@ def analyse_directory(argv, db):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
-                    my_book = Book(dirpath + '/' + ebook)
+                    my_book = Book(dirpath + '/' + ebook, samples=0)
                     print "Checking if book exists in database"
                     if is_book_in_db(my_book, db):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-                    result = analyse_book(dirpath + '/' + ebook)
-                    if not result:
-                        continue
-                    my_book, word_curve_fit, zh_char_curve_fit = result[0], result[1], result[2]
+                    my_book = Book(dirpath + '/' + ebook, samples=10)
                     print "Writing to database"
-                    #mycol.insert_one(my_book.__dict__)
-                    print("." in my_book.tokens)
-                    print("." in my_book.zh_characters)
-                    print("." in my_book.freq_dist)
-                    insert_book_db(my_book, word_curve_fit, zh_char_curve_fit, db)
+                    #print(my_book.__dict__)
+                    mycol.insert_one(my_book.__dict__)
+                    insert_book_db(my_book, db)
                     books_analyzed += 1
                     runbackup("localhost", "root", "root", db, db_file)
                 except (KeyError, TypeError) as ex:
@@ -599,7 +585,6 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 <<utf8-cleaning>>
 <<dot-cleaning>>
 ## Curve fitting functions
-<<curve-fit>>
 <<lexical-sweep>>
 <<fit-functions>>
 ## Database functions
@@ -616,141 +601,8 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 #+RESULTS:
 : None
 
-* Arguelles Analysis
-** Python
-*** Whole length
-#+NAME: moby
-#+BEGIN_SRC python :exports code :session readability_metric :results output
-from corpus_analysis import Book
-
-moby_dick = Book("test/moby.epub")
-moby_dick.extract_text()
-moby_dick.tokenize()
-print moby_dick.title
-with open('moby.tsv', 'w+') as my_file:
-    my_file.write(str(moby_dick.word_count) + "\t" + str(moby_dick.unique_words) + "\n")
-#+END_SRC
-
-#+RESULTS: moby
-: Moby Dick; Or, The Whale
-
-#+NAME: pinocchio
-#+BEGIN_SRC python :exports code :session readability_metric :results output
-from corpus_analysis import Book
-
-pinocchio = Book("test/pinocchio.epub")
-pinocchio.extract_text()
-pinocchio.tokenize()
-print pinocchio.title
-
-with open('pinocchio.tsv', 'w') as my_file:
-    my_file.write(str(pinocchio.word_count) + "\t" + str(pinocchio.unique_words) + "\n")
-#+END_SRC
-#+RESULTS: pinocchio
-: The Adventures of Pinocchio
-*** Sweep
-#+NAME: moby_sweep
-#+BEGIN_SRC python :exports code :session readability_metric :results output
-from corpus_analysis import Book
-
-moby_dick = Book("test/moby.epub")
-moby_dick.extract_text()
-moby_dick.tokenize()
-print moby_dick.title
-sweep_values = lexical_sweep(moby_dick.tokens, samples=100, log_x=False, log_y=False)
-with open('moby_sweep.tsv', 'w') as my_file:
-    for sweep_value in sweep_values:
-        my_file.write(str(sweep_value[0]) + "\t" + str(sweep_value[1]) + "\n")
-#+END_SRC
-
-#+RESULTS: moby_sweep
-: Moby Dick; Or, The Whale
-
-#+NAME: pinocchio_sweep
-#+BEGIN_SRC python :exports code :session readability_metric :results output
-from corpus_analysis import Book, lexical_sweep
-
-pinocchio = Book("test/pinocchio.epub")
-pinocchio.extract_text()
-pinocchio.tokenize()
-print pinocchio.title
-sweep_values = lexical_sweep(pinocchio.tokens, samples=100, log_x=False, log_y=False)
-with open('pinocchio_sweep.tsv', 'w') as my_file:
-    for sweep_value in sweep_values:
-        my_file.write(str(sweep_value[0]) + "\t" + str(sweep_value[1]) + "\n")
-#+END_SRC
-
-#+RESULTS: pinocchio_sweep
-: The Adventures of Pinocchio
-** Plot
-#+NAME: moby_pinocchio_plot
-#+BEGIN_SRC gnuplot :var pinocchio_title=pinocchio moby_title=moby :exports both moby_pinocchio.png
-reset
-set xrange [0:300000]
-set yrange [0:25000]
-set key autotitle columnhead
-set style line 1 lw 4 lc rgb '#990042' ps 2 pt 6 pi 5
-set style line 2 lw 3 lc rgb '#31f120' ps 2 pt 12 pi 3
-set title "Lexical variety Vs Length"
-set title pinocchio_title
-set xlabel "Length in words"
-set ylabel "Unique words"
-plot "moby.tsv" ls 1 title moby_title, \
-     "pinocchio.tsv" ls 2 title pinocchio_title
-#+END_SRC
-
-#+RESULTS: moby_pinocchio_plot
-
-#+RESULTS:
-
-#+NAME: moby_pinocchio_sweep_plot
-#+BEGIN_SRC gnuplot :var pinocchio_title=pinocchio_sweep moby_title=moby_sweep :exports both :file moby_pinocchio.png
-reset
-set xrange [4000:400000]
-set yrange [1000:40000]
-set logscale x
-set logscale y
-set style line 1 lw 4 lc rgb '#990042' ps 2 pt 6 pi 5
-set style line 2 lw 3 lc rgb '#31f120' ps 2 pt 12 pi 3
-set title pinocchio_title
-set title "Pinocchio and Moby Dick comparison"
-#set title "Lexical variety Vs Length"
-set xlabel "Length in words"
-set ylabel "Unique words"
-plot "moby_sweep.tsv" ls 1 title moby_title, \
-     "pinocchio_sweep.tsv" ls 2 title pinocchio_title
-#+END_SRC
-
-#+RESULTS: moby_pinocchio_sweep_plot
-[[file:moby_pinocchio.png]]
-
-#+RESULTS:
-
-#+begin_src gnuplot :exports both file.png
-reset
-
-set title "Putting it All Together"
-
-set xlabel "X"
-set xrange [-8:8]
-set xtics -8,2,8
-
-
-set ylabel "Y"
-set yrange [-20:70]
-set ytics -20,10,70
-
-2f(x) = x**2
-g(x) = x**3
-h(x) = 10*sqrt(abs(x))
-i(x) = 15*sin(x)
-
-plot f(x) w lp lw 1, g(x) w p lw 2, h(x) w l lw 3, i(x) w l lw 4
-#+end_src
-
-#+RESULTS:
-
 * Testing
+** Unit tests
 #+BEGIN_SRC python :exports code :noweb yes :tangle test_corpus_analysis.py
 # -*- coding: utf-8 -*-
 '''
@@ -768,6 +620,7 @@ class MyTest(unittest.TestCase):
     '''
     Class
     '''
+    maxDiff = None
     @timeout_decorator.timeout(1)
     def test_metadata(self):
         '''
@@ -1030,7 +883,6 @@ if __name__ == '__main__':
   #+end_src
 
   #+RESULTS:
-
 ** Creating benchmark
 
 #+BEGIN_SRC python :noweb yes :tangle create_benchmark.py :exports code
@@ -1040,57 +892,18 @@ Create benchmark based on epubs
 
 import json
 import os
-from corpus_analysis import analyse_book
+import corpus_analysis
 
 DATA = {}
 DATA['books'] = []
 
-for dirpath, __, files in os.walk('test'):
-    for ebook in files:
-        try:
-            my_book, word_curve_fit, zh_character_curve_fit = analyse_book(dirpath
-                                                                           + '/'
-                                                                           + ebook)
-        except TypeError as ex:
-            print ex
-            continue
-        DATA['books'].append({"path": dirpath + "/" + ebook,
-                              "author": my_book.author,
-                              "title": my_book.title,
-                              "epub_type": my_book.epub_type,
-                              "subject": my_book.subject,
-                              "rights": my_book.rights,
-                              "relation": my_book.relation,
-                              "publisher": my_book.publisher,
-                              "identifier": my_book.identifier,
-                              "epub_format": my_book.epub_format,
-                              "description": my_book.description,
-                              "contributor": my_book.contributor,
-                              "date": my_book.date,
-                              "language": my_book.language,
-                              "word_count": my_book.word_count,
-                              "unique_words": my_book.unique_words,
-                              "zh_character_count": my_book.character_count,
-                              "unique_zh_characters": my_book.unique_characters,
-                              "word_curve_fit_slope":
-                              word_curve_fit['slope'],
-                              "word_curve_fit_intercept":
-                              word_curve_fit['intercept'],
-                              "word_curve_fit_std_error_slope":
-                              word_curve_fit['std_error_slope'],
-                              "word_curve_fit_std_error_intercept":
-                              word_curve_fit['std_error_intercept'],
-                              "zh_character_curve_fit_slope":
-                              zh_character_curve_fit['slope'],
-                              "zh_character_curve_fit_intercept":
-                              zh_character_curve_fit['intercept'],
-                              "zh_character_curve_fit_std_error_slope":
-                              zh_character_curve_fit['std_error_slope'],
-                              "zh_character_curve_fit_std_error_intercept":
-                              zh_character_curve_fit['std_error_intercept']})
-
 with open('benchmarks.json', 'w') as outfile:
-    json.dump(DATA, outfile)
+    for dirpath, __, files in os.walk('test'):
+        for ebook in files:
+            print "Reading book"
+            my_book = corpus_analysis.Book(dirpath + '/' + ebook, 10)
+            print "Book read"
+            json.dump(my_book.__dict__, outfile)
 #+end_src
 
 ** Downloading books for benchmark
@@ -1334,6 +1147,140 @@ def runbackup(hostname,
         print ex
         print("Backup failed for", hostname)
 #+end_src
+* Arguelles Analysis
+** Python
+*** Whole length
+#+NAME: moby
+#+BEGIN_SRC python :exports code :session readability_metric :results output
+from corpus_analysis import Book
+
+moby_dick = Book("test/moby.epub")
+moby_dick.extract_text()
+moby_dick.tokenize()
+print moby_dick.title
+with open('moby.tsv', 'w+') as my_file:
+    my_file.write(str(moby_dick.word_count) + "\t" + str(moby_dick.unique_words) + "\n")
+#+END_SRC
+
+#+RESULTS: moby
+: Moby Dick; Or, The Whale
+
+#+NAME: pinocchio
+#+BEGIN_SRC python :exports code :session readability_metric :results output
+from corpus_analysis import Book
+
+pinocchio = Book("test/pinocchio.epub")
+pinocchio.extract_text()
+pinocchio.tokenize()
+print pinocchio.title
+
+with open('pinocchio.tsv', 'w') as my_file:
+    my_file.write(str(pinocchio.word_count) + "\t" + str(pinocchio.unique_words) + "\n")
+#+END_SRC
+#+RESULTS: pinocchio
+: The Adventures of Pinocchio
+*** Sweep
+#+NAME: moby_sweep
+#+BEGIN_SRC python :exports code :session readability_metric :results output
+from corpus_analysis import Book
+
+moby_dick = Book("test/moby.epub")
+moby_dick.extract_text()
+moby_dick.tokenize()
+print moby_dick.title
+sweep_values = lexical_sweep(moby_dick.tokens, samples=100, log_x=False, log_y=False)
+with open('moby_sweep.tsv', 'w') as my_file:
+    for sweep_value in sweep_values:
+        my_file.write(str(sweep_value[0]) + "\t" + str(sweep_value[1]) + "\n")
+#+END_SRC
+
+#+RESULTS: moby_sweep
+: Moby Dick; Or, The Whale
+
+#+NAME: pinocchio_sweep
+#+BEGIN_SRC python :exports code :session readability_metric :results output
+from corpus_analysis import Book, lexical_sweep
+
+pinocchio = Book("test/pinocchio.epub")
+pinocchio.extract_text()
+pinocchio.tokenize()
+print pinocchio.title
+sweep_values = lexical_sweep(pinocchio.tokens, samples=100, log_x=False, log_y=False)
+with open('pinocchio_sweep.tsv', 'w') as my_file:
+    for sweep_value in sweep_values:
+        my_file.write(str(sweep_value[0]) + "\t" + str(sweep_value[1]) + "\n")
+#+END_SRC
+
+#+RESULTS: pinocchio_sweep
+: The Adventures of Pinocchio
+** Plot
+#+NAME: moby_pinocchio_plot
+#+BEGIN_SRC gnuplot :var pinocchio_title=pinocchio moby_title=moby :exports both moby_pinocchio.png
+reset
+set xrange [0:300000]
+set yrange [0:25000]
+set key autotitle columnhead
+set style line 1 lw 4 lc rgb '#990042' ps 2 pt 6 pi 5
+set style line 2 lw 3 lc rgb '#31f120' ps 2 pt 12 pi 3
+set title "Lexical variety Vs Length"
+set title pinocchio_title
+set xlabel "Length in words"
+set ylabel "Unique words"
+plot "moby.tsv" ls 1 title moby_title, \
+     "pinocchio.tsv" ls 2 title pinocchio_title
+#+END_SRC
+
+#+RESULTS: moby_pinocchio_plot
+
+#+RESULTS:
+
+#+NAME: moby_pinocchio_sweep_plot
+#+BEGIN_SRC gnuplot :var pinocchio_title=pinocchio_sweep moby_title=moby_sweep :exports both :file moby_pinocchio.png
+reset
+set xrange [4000:400000]
+set yrange [1000:40000]
+set logscale x
+set logscale y
+set style line 1 lw 4 lc rgb '#990042' ps 2 pt 6 pi 5
+set style line 2 lw 3 lc rgb '#31f120' ps 2 pt 12 pi 3
+set title pinocchio_title
+set title "Pinocchio and Moby Dick comparison"
+#set title "Lexical variety Vs Length"
+set xlabel "Length in words"
+set ylabel "Unique words"
+plot "moby_sweep.tsv" ls 1 title moby_title, \
+     "pinocchio_sweep.tsv" ls 2 title pinocchio_title
+#+END_SRC
+
+#+RESULTS: moby_pinocchio_sweep_plot
+[[file:moby_pinocchio.png]]
+
+#+RESULTS:
+
+#+begin_src gnuplot :exports both file.png
+reset
+
+set title "Putting it All Together"
+
+set xlabel "X"
+set xrange [-8:8]
+set xtics -8,2,8
+
+
+set ylabel "Y"
+set yrange [-20:70]
+set ytics -20,10,70
+
+2f(x) = x**2
+g(x) = x**3
+h(x) = 10*sqrt(abs(x))
+i(x) = 15*sin(x)
+
+plot f(x) w lp lw 1, g(x) w p lw 2, h(x) w l lw 3, i(x) w l lw 4
+#+end_src
+
+#+RESULTS:
+
 * MongoDB
 #+NAME: mongodb-connection
 #+begin_src python :noweb yes :session python :exports code
@@ -1341,6 +1288,18 @@ myclient = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = myclient["library"]
 mycol = mydb["corpus"]
 #+end_src
+** InvalidDocument: key 'edition.Most' must not contain '.'
+   #+begin_src python :results output :session python
+from corpus_analysis import Book
+
+my_book = Book("./test/books/hongloumeng.epub")
+my_book.get_freq_dist()
+dir(my_book)
+   #+end_src
+
+   #+RESULTS:
+   : False
+   : False
 
 * Fitting points to function
   The purpose of this section is to fit all the different points to a function

@@ -61,73 +61,7 @@ class Book(object):
     '''
     # pylint: disable=too-many-instance-attributes
     # There is a lot of metadata but it is repetitive and non problematic.
-    def __init__(self, epub_filename):
-        '''
-        Init.
-        '''
-        # pylint: disable=too-many-statements
-        # There is a lot of metadata but it is repetitive and non problematic.
-        self.filename = epub_filename
-        epub_file = epub.read_epub(epub_filename)
-        try:
-            self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.epub_type = ''
-        try:
-            self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.subject = ''
-        try:
-            self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.source = ''
-        try:
-            self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.rights = ''
-        try:
-            self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.relation = ''
-        try:
-            self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.publisher = ''
-        #try:
-        #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
-        #except (IndexError, AttributeError):
-        #    self.language = 'empty'
-        try:
-            self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.identifier = ''
-        try:
-            self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.epub_format = ''
-        try:
-            self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.description = ''
-        try:
-            self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.coverage = ''
-        try:
-            self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.contributor = ''
-        self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-        self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
-        try:
-            self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
-        except (IndexError, AttributeError):
-            self.date = ''
-        self.language = str()
-        self.tokens = tuple()
-        self.word_count = int()
-        self.unique_words = int()
-        self.text = tuple()
+    
     def tokenize(self):
         '''
         Tokenization.
@@ -137,19 +71,12 @@ class Book(object):
         if not self.language:
             self.detect_language()
         if self.language == 'zh' or self.language == 'zh_Hant':
-            self.zh_characters = tuple()
-            self.character_count = int()
-            self.unique_characters = int()
-            self.zh_characters = ''.join(character for character in self.text
-                                         if u'\u4e00' <= character <= u'\u9fff')
+            self.zh_characters = tuple(''.join(character for character in self.text
+                                               if u'\u4e00' <= character <= u'\u9fff'))
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
-        else:
-            print("No chinese characters")
-            self.zh_characters = tuple()
-            self.character_count = int()
-            self.unique_characters = int()
-        self.tokens = Text(self.text).words
+        self.tokens = tuple(Text(self.text).words)
+        self.tokens.remove('.')
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
     def get_freq_dist(self):
@@ -159,12 +86,9 @@ class Book(object):
         if not self.tokens:
             self.tokenize()
         if self.language == 'zh' or self.language == 'zh_Hant':
-            self.zh_char_freq_dist = dict()
-            self.zh_char_freq_dist = FreqDist(self.zh_characters)
-            clean_dots(self.zh_char_freq_dist)
+            self.zh_char_freq_dist = dict(FreqDist(self.zh_characters))
             del self.zh_char_freq_dist['.']
-        self.freq_dist = dict()
-        self.freq_dist = FreqDist(self.tokens)
+        self.freq_dist = dict(FreqDist(self.tokens))
         del self.freq_dist['.']
     def extract_text(self):
         '''
@@ -178,7 +102,7 @@ class Book(object):
                 raw_html = item.get_content()
                 html_filtered += BeautifulSoup(raw_html, "lxml").text
         cleantext = clean_non_printable(html_filtered)
-        self.text = cleantext
+        self.text = tuple(cleantext)
     def detect_language(self):
         '''
         We don't trust the epub metadata regarding language tags
@@ -202,6 +126,51 @@ class Book(object):
         Release tokens.
         '''
         self.tokens = tuple()
+    def extract_fit_parameters(self, analysis_type, sweep_values):
+        '''
+        Curve fit.
+        '''
+        if analysis_type == "words":
+            log_x = True
+            log_y = True
+            function = linear_func
+        elif analysis_type == "characters":
+            log_x = True
+            log_y = False
+            function = linear_func
+        if sweep_values:
+            array = list(zip(*sweep_values))
+            if log_y:
+                xarr = log(array[0])
+            else:
+                xarr = array[0]
+            if log_y:
+                yarr = log(array[1])
+            else:
+                yarr = array[1]
+            initial_a = 0
+            initial_b = 0
+            popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
+            slope = popt[0]
+            intercept = popt[1]
+            perr = np.sqrt(np.diag(pcov))
+            std_error_slope = perr[0]
+            std_error_intercept = perr[1]
+            self.fit = {'type': analysis_type,
+                        'intercept': intercept,
+                        'slope': slope,
+                        'std_error_intercept': std_error_intercept,
+                        'std_error_slope': std_error_slope}
+    def delete_heavy_attributes(self):
+        '''
+        Delete heavy attributes.
+        '''
+        del self.text
+        del self.tokens
+        try:
+            del self.zh_characters
+        except AttributeError as ex:
+            print ex
 # Functions
 def clean_non_printable(text):
     '''
@@ -214,36 +183,6 @@ def clean_dots(dictionary):
     '''
     del dictionary['.']
 ## Curve fitting functions
-def extract_fit_parameters(function, sweep_values, log_x=False, log_y=False):
-    '''
-    Curve fit.
-    '''
-    if sweep_values:
-        array = list(zip(*sweep_values))
-        if log_x:
-            xarr = log(array[0])
-        else:
-            xarr = array[0]
-        if log_y:
-            yarr = log(array[1])
-        else:
-            yarr = array[1]
-        initial_a = 0
-        initial_b = 0
-        popt, pcov = curve_fit(function, xarr, yarr, (initial_a, initial_b))
-        slope = popt[0]
-        intercept = popt[1]
-        perr = np.sqrt(np.diag(pcov))
-        std_error_slope = perr[0]
-        std_error_intercept = perr[1]
-        return {'intercept': intercept,
-                'slope': slope,
-                'std_error_intercept': std_error_intercept,
-                'std_error_slope': std_error_slope}
-    return {'intercept': int(),
-            'slope': int(),
-            'std_error_intercept': int(),
-            'std_error_slope': int()}
 def lexical_sweep(text, samples=10):
     '''
     Lexical sweep.
@@ -462,37 +401,6 @@ def runbackup(hostname,
         print ex
         print("Backup failed for", hostname)
 # Main function
-def analyse_book(ebook, samples=10):
-    '''
-    Analyse individual book.
-    You can insert into db or into json afterwards
-    '''
-    try:
-        my_book = Book(ebook)
-        my_book.tokenize()
-        my_book.get_freq_dist()
-        sweep_values = lexical_sweep(my_book.tokens,
-                                     samples)
-        word_curve_fit = extract_fit_parameters(linear_func,
-                                                sweep_values,
-                                                log_x=True,
-                                                log_y=True)
-        if my_book.language == "zh" or my_book.language == "zh_Hant":
-            sweep_values = lexical_sweep(my_book.zh_characters,
-                                         samples)
-            zh_character_curve_fit = extract_fit_parameters(linear_func,
-                                                            sweep_values,
-                                                            log_x=True,
-                                                            log_y=False)
-            return my_book, word_curve_fit, zh_character_curve_fit
-        return my_book, word_curve_fit, {'intercept': int(),
-                                         'slope': int(),
-                                         'std_error_intercept': int(),
-                                         'std_error_slope': int()}
-    except TypeError as ex:
-        print ex
-        return False
-
 def analyse_directory(argv, db):
     '''
     Main function: open and read all epub files in directory.
@@ -510,21 +418,16 @@ def analyse_directory(argv, db):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
-                    my_book = Book(dirpath + '/' + ebook)
+                    my_book = Book(dirpath + '/' + ebook, samples=0)
                     print "Checking if book exists in database"
                     if is_book_in_db(my_book, db):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
-                    result = analyse_book(dirpath + '/' + ebook)
-                    if not result:
-                        continue
-                    my_book, word_curve_fit, zh_char_curve_fit = result[0], result[1], result[2]
+                    my_book = Book(dirpath + '/' + ebook, samples=10)
                     print "Writing to database"
-                    #mycol.insert_one(my_book.__dict__)
-                    print("." in my_book.tokens)
-                    print("." in my_book.zh_characters)
-                    print("." in my_book.freq_dist)
-                    insert_book_db(my_book, word_curve_fit, zh_char_curve_fit, db)
+                    #print(my_book.__dict__)
+                    mycol.insert_one(my_book.__dict__)
+                    insert_book_db(my_book, db)
                     books_analyzed += 1
                     runbackup("localhost", "root", "root", db, db_file)
                 except (KeyError, TypeError) as ex:

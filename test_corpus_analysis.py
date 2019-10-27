@@ -14,6 +14,7 @@ class MyTest(unittest.TestCase):
     '''
     Class
     '''
+    maxDiff = None
     @timeout_decorator.timeout(1)
     def test_metadata(self):
         '''
