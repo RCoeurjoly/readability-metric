@@ -719,10 +719,6 @@ class MyTest(unittest.TestCase):
         Given a certain book, test sweep
         '''
         my_book = Book("test/books/hongloumeng.epub", 10)
-        sweep_values = lexical_sweep(my_book.tokens)
-        zh_sweep_values = lexical_sweep(my_book.zh_characters)
-        print sweep_values
-        print zh_sweep_values
         self.assertEqual(True, True)
 
     @timeout_decorator.timeout(708)
