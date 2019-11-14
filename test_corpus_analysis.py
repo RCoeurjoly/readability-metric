@@ -103,7 +103,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.fit, benchmark['fit'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 
-    # @timeout_decorator.timeout(900)
+                # @timeout_decorator.timeout(900)
     # def test_db_writing(self):
     #     '''
     #     Write all books to database

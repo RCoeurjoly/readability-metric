@@ -161,7 +161,6 @@ class Book(object):
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         self.tokens = Text(self.text).words
-        self.tokens.remove('.')
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
     def get_freq_dist(self):
@@ -231,7 +230,7 @@ class Book(object):
             function = linear_func
         if sweep_values:
             array = list(zip(*sweep_values))
-            if log_y:
+            if log_x:
                 xarr = log(array[0])
             else:
                 xarr = array[0]
@@ -289,7 +288,8 @@ def lexical_sweep(text, samples=10):
                 len(text) - 1,
                 log_step):
             x_sample = sample_size
-            my_text = text[0:sample_size].sort()
+            my_text = text[0:sample_size]
+            my_text.sort()
             y_sample = len(set(my_text))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
