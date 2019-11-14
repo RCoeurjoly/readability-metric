@@ -32,7 +32,7 @@
   We will use a literate programming approach using GNU/Emacs org mode to make our results as reproducible as possible.
 * Corpora
 ** French
-  #+BEGIN_SRC shell :exports code :tangle french-corpus.sh
+  #+BEGIN_SRC shell :exports code :tangle scripts/french-corpus.sh
 for i in {1..11000}
 do
     wget -O $1$i.epub bibliothequenumerique.tv5monde.com/download/epub/$i
@@ -42,9 +42,9 @@ done
 
   #+RESULTS:
 ** Chinese
-The following is the perfect script for downloading Chinese books from haodoo (好讀).
+   The following is the perfect script for downloading Chinese books from haodoo (好讀).
 It removes those in vertical format with -R "V*.epub".
-  #+BEGIN_SRC shell :exports code :tangle chinese-corpus.sh
+  #+BEGIN_SRC shell :exports code :tangle scripts/chinese-corpus.sh
 wget -np -P $1 -r -A .epub -R "V*.epub" http://haodoo.net/PDB/
   #+END_SRC
 
@@ -64,7 +64,7 @@ ls -ltu ~/readability-metric/corpus/Chinese/haodoo.net/PDB/A/*435.epub
 ** Arabic
    [[http://www.hindawi.
 org/][http://www.hindawi.org/]]
-   #+BEGIN_SRC shell :exports code :tangle arabic-corpus.sh
+   #+BEGIN_SRC shell :exports code :tangle scripts/arabic-corpus.sh
 wget -np -P $1 -r -A .epub http://www.hindawi.org/books/
    #+END_SRC
 ** Russian
@@ -140,7 +140,8 @@ def lexical_sweep(text, samples=10):
                 len(text) - 1,
                 log_step):
             x_sample = sample_size
-            y_sample = len(set(text[0:sample_size]))
+            my_text = sort(text[0:sample_size])
+            y_sample = len(set(my_text))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
     return False
@@ -780,7 +781,7 @@ with open('benchmarks.json', 'w') as outfile:
 
 ** Downloading books for benchmark
 
-#+BEGIN_SRC shell :exports code :tangle download_benchmark.sh
+#+BEGIN_SRC shell :exports code :tangle scripts/download_benchmark.sh
 mkdir test/db
 mkdir test/books
 wget https://www.gutenberg.org/ebooks/24264.epub.noimages?session_id=13a48cb17a2a788bd0df32eb9d11b2cc90e5ffb6 -O test/books/hongloumeng.epub
@@ -1377,7 +1378,7 @@ unset multiplot
 [[file:all.png]]
 * Tagging
   The purpose of this section is to tag the lists containing the analysis with the canon to which they belong, if appropriate.
-  #+begin_src bash :tangle canon-tagging.sh :exports code
+  #+begin_src bash :tangle scripts/canon-tagging.sh :exports code
 canon="/home/rcl/readability-metric/canon/chinese.txt"
 analized="/home/rcl/readability-metric/tagging/zh-TW.tsv"
 list=""
