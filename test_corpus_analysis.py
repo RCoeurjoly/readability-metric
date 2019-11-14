@@ -17,7 +17,7 @@ class MyTest(unittest.TestCase):
     '''
     maxDiff = None
 
-    @timeout_decorator.timeout(1)
+    @timeout_decorator.timeout(10)
     def test_metadata(self):
         '''
         Given a certain book, test metadata
@@ -48,7 +48,7 @@ class MyTest(unittest.TestCase):
                         self.assertEqual(attr, benchmark[key].encode('utf-8'))
                 print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(7)
+    @timeout_decorator.timeout(70)
     def test_language(self):
         '''
         Given a certain book, test language
@@ -61,7 +61,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(20)
+    @timeout_decorator.timeout(200)
     def test_tokens(self):
         '''
         Given a certain book, test tokens
@@ -83,7 +83,7 @@ class MyTest(unittest.TestCase):
                         self.assertEqual(attr, benchmark[key])
                 print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(50)
+    @timeout_decorator.timeout(500)
     def test_sweep(self):
         '''
         Given a certain book, test sweep
@@ -91,7 +91,7 @@ class MyTest(unittest.TestCase):
         my_book = Book("test/books/hongloumeng.epub", 10)
         self.assertEqual(True, True)
 
-    @timeout_decorator.timeout(95)
+    @timeout_decorator.timeout(950)
     def test_fit(self):
         '''
         Given a certain book, test fit

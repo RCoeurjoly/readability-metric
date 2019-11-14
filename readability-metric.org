@@ -135,7 +135,7 @@ def lexical_sweep(text, samples=10):
     if len(text) > 10000 and samples >= 2:
         sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
             log_behaviour_start,
-            len(text) - 1,
+            len(text) + 1,
             log_step))
         return sweep_values
     return False
@@ -259,6 +259,7 @@ def __init__(self, epub_filename, samples=0):
         if self.language == "zh" or self.language == "zh_Hant":
             sweep_values = lexical_sweep(self.zh_characters, samples)
             self.extract_fit_parameters("characters", sweep_values)
+        self.delete_heavy_attributes()
 #+END_SRC
 *** Extracting metadata
 #+NAME: metadata
@@ -509,7 +510,7 @@ def delete_heavy_attributes(self):
 #+NAME: imports
 #+BEGIN_SRC python :session python :results none :exports code
 import unicodedata
-import icu
+#import icu
 import sys
 import os
 import math
@@ -633,7 +634,7 @@ class MyTest(unittest.TestCase):
     '''
     maxDiff = None
 
-    @timeout_decorator.timeout(1)
+    @timeout_decorator.timeout(10)
     def test_metadata(self):
         '''
         Given a certain book, test metadata
@@ -664,7 +665,7 @@ class MyTest(unittest.TestCase):
                         self.assertEqual(attr, benchmark[key].encode('utf-8'))
                 print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(7)
+    @timeout_decorator.timeout(70)
     def test_language(self):
         '''
         Given a certain book, test language
@@ -677,7 +678,7 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
                 print "Language for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(20)
+    @timeout_decorator.timeout(200)
     def test_tokens(self):
         '''
         Given a certain book, test tokens
@@ -699,7 +700,7 @@ class MyTest(unittest.TestCase):
                         self.assertEqual(attr, benchmark[key])
                 print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
 
-    @timeout_decorator.timeout(50)
+    @timeout_decorator.timeout(500)
     def test_sweep(self):
         '''
         Given a certain book, test sweep
@@ -707,7 +708,7 @@ class MyTest(unittest.TestCase):
         my_book = Book("test/books/hongloumeng.epub", 10)
         self.assertEqual(True, True)
 
-    @timeout_decorator.timeout(95)
+    @timeout_decorator.timeout(950)
     def test_fit(self):
         '''
         Given a certain book, test fit

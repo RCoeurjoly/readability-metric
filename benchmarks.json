@@ -13,11 +13,11 @@
       "date": "2008-01-12", 
       "fit": [
         {
-          "slope": 0.496797178464293, 
-          "intercept": 3.3380394357466656, 
-          "std_error_intercept": 0.224286872461268, 
-          "std_error_slope": 0.018412342059032954, 
-          "samples": 9, 
+          "slope": 0.49437589637048135, 
+          "intercept": 3.3636812381650776, 
+          "std_error_intercept": 0.20653556358838424, 
+          "std_error_slope": 0.016779064774103052, 
+          "samples": 10, 
           "type": "words"
         }, 
         {
@@ -138,11 +138,11 @@
       "date": "2004-07-01", 
       "fit": [
         {
-          "slope": 0.7376022647086525, 
-          "intercept": 1.3529181116953777, 
-          "std_error_intercept": 0.039632208009818266, 
-          "std_error_slope": 0.0041222393245017915, 
-          "samples": 9, 
+          "slope": 0.740965952062281, 
+          "intercept": 1.3219483109237486, 
+          "std_error_intercept": 0.043062562006616234, 
+          "std_error_slope": 0.0044434533571277805, 
+          "samples": 10, 
           "type": "words"
         }
       ], 
@@ -161,11 +161,11 @@
       "date": "1999-12-01", 
       "fit": [
         {
-          "slope": 0.6415380362590074, 
-          "intercept": 1.858915163764228, 
-          "std_error_intercept": 0.14169842377090203, 
-          "std_error_slope": 0.011975484007433923, 
-          "samples": 9, 
+          "slope": 0.6418529805680346, 
+          "intercept": 1.855630448889826, 
+          "std_error_intercept": 0.12811005774871925, 
+          "std_error_slope": 0.010715071669469183, 
+          "samples": 10, 
           "type": "words"
         }
       ], 

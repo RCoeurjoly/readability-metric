@@ -6,7 +6,7 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 '''
 # Imports
 import unicodedata
-import icu
+#import icu
 import sys
 import os
 import math
@@ -83,6 +83,7 @@ class Book(object):
             if self.language == "zh" or self.language == "zh_Hant":
                 sweep_values = lexical_sweep(self.zh_characters, samples)
                 self.extract_fit_parameters("characters", sweep_values)
+            self.delete_heavy_attributes()
     def extract_metadata(self):
         '''
         Extraction of metadata
@@ -277,7 +278,7 @@ def lexical_sweep(text, samples=10):
     if len(text) > 10000 and samples >= 2:
         sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
             log_behaviour_start,
-            len(text) - 1,
+            len(text) + 1,
             log_step))
         return sweep_values
     return False
