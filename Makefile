@@ -13,6 +13,9 @@ test: clean download_test_assets
 test_without_download:
 	python test_corpus_analysis.py
 
+setup_env:
+	virtualenv ~/readability-metric
+
 run: source
 	python /home/rcl/readability-measure/corpus_analysis.py /media/root/terabyte
 
