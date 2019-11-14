@@ -289,7 +289,7 @@ def lexical_sweep(text, samples=10):
                 len(text) - 1,
                 log_step):
             x_sample = sample_size
-            my_text = sort(text[0:sample_size])
+            my_text = text[0:sample_size].sort()
             y_sample = len(set(my_text))
             sweep_values.append([x_sample, y_sample])
         return sweep_values
