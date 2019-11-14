@@ -103,18 +103,19 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.fit, benchmark['fit'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 
-                # @timeout_decorator.timeout(900)
+    # @timeout_decorator.timeout(900)
     # def test_db_writing(self):
     #     '''
     #     Write all books to database
     #     '''
-    #     my_args = ["lol", "test/", "db/library_test.db"]
+    #     my_args = ["whatever", "test/", "library_test", "test/db/library_test.db"]
     #     # Drop database
     #     myclient = pymongo.MongoClient("mongodb://localhost:27017/")
     #     mydb = myclient["library_test"]
     #     mycol = mydb["corpus"]
     #     mycol.drop()
-    #     analyse_directory(my_args, "library_test")
+    #     analyse_directory(my_args)
+
 
 if __name__ == '__main__':
     unittest.main(failfast=True)

@@ -506,41 +506,36 @@ def is_book_in_mongodb(book):
     if mydoc:
         return True
     return False
-def backup_mongo(db,
-                 db_loc="test/db/library_test.db"):
+def backup_mongo(db):
     '''
     Write sql file.
     '''
     try:
         backup = subprocess.Popen("mongodump --host localhost --db "
-                                  + db
-                                  + " --dbpath "
-                                  + db_loc)
+                                  + db)
 
         # Wait for completion
         backup.communicate()
         if backup.returncode != 0:
             sys.exit(1)
         else:
-            print("Backup done for ", db)
+            print "Backup done for " + db
     except Exception as ex:
         # Check for errors
         print ex
-        print("Backup failed for ", db)
+        print "Backup failed for " + db
 # Main function
-def analyse_directory(argv, db):
+def analyse_directory(argv):
     '''
     Main function: open and read all epub files in directory.
     Analyze them and populate data in database
     :param argv: command line args.
     '''
-    if db == "library":
-        db_file = "/media/root/terabyte/Metatron/library.db"
-    else:
-        db_file = "test/db/library.db"
     books_analyzed = 0
-    mongo_connection(db)
     corpus_path = str(argv[1])
+    db = str(argv[2])
+    db_file = str(argv[3])
+    mongo_connection(db)
     for dirpath, __, files in os.walk(corpus_path):
         for ebook in files:
             if ebook.endswith(".epub"):
@@ -549,16 +544,17 @@ def analyse_directory(argv, db):
                     print "Checking if book exists in database"
                     if is_book_in_mongodb(my_book):
                         continue
-                    print "Reading ebook " + ebook + ", number  " + str(books_analyzed)
+                    print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
                     my_book = Book(dirpath + '/' + ebook, samples=10)
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__)
+                    print "Performing backup"
+                    backup_mongo(db)
                     books_analyzed += 1
-                    backup_mongo(db, db_file)
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
     MY_DB.close()
 
 if __name__ == '__main__':
-    analyse_directory(sys.argv, "library")
+    analyse_directory(sys.argv)
