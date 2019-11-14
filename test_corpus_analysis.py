@@ -91,7 +91,7 @@ class MyTest(unittest.TestCase):
         my_book = Book("test/books/hongloumeng.epub", 10)
         self.assertEqual(True, True)
 
-    @timeout_decorator.timeout(708)
+    @timeout_decorator.timeout(95)
     def test_fit(self):
         '''
         Given a certain book, test fit

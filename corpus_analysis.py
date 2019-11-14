@@ -6,6 +6,7 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 '''
 # Imports
 import unicodedata
+import icu
 import sys
 import os
 import math
@@ -75,22 +76,13 @@ class Book(object):
             self.extract_metadata()
             self.extract_text()
             self.detect_language()
-            print "Tokenizing"
             self.tokenize()
-            print "Freq dist"
-            #self.get_freq_dist()
-            print "Lexical sweep for words"
             sweep_values = lexical_sweep(self.tokens, samples)
-            print "Word fit"
             self.fit = []
             self.extract_fit_parameters("words", sweep_values)
             if self.language == "zh" or self.language == "zh_Hant":
-                print "Lexical sweep for characters"
                 sweep_values = lexical_sweep(self.zh_characters, samples)
-                print "Chinese fit"
                 self.extract_fit_parameters("characters", sweep_values)
-            print "Deleting "
-            self.delete_heavy_attributes()
     def extract_metadata(self):
         '''
         Extraction of metadata
@@ -98,7 +90,6 @@ class Book(object):
         # pylint: disable=too-many-statements
         # There is a lot of metadata but it is repetitive and non problematic.
         epub_file = epub.read_epub(self.filepath)
-        print "Extracting metadata"
         try:
             self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
         except (IndexError, AttributeError):
@@ -161,6 +152,7 @@ class Book(object):
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         self.tokens = Text(self.text).words
+        self.tokens.remove('.')
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
     def get_freq_dist(self):
@@ -283,15 +275,10 @@ def lexical_sweep(text, samples=10):
     log_behaviour_range = len(text) - log_behaviour_start
     log_step = log_behaviour_range/(samples - 1)
     if len(text) > 10000 and samples >= 2:
-        for sample_size in xrange(
-                log_behaviour_start,
-                len(text) - 1,
-                log_step):
-            x_sample = sample_size
-            my_text = text[0:sample_size]
-            my_text.sort()
-            y_sample = len(set(my_text))
-            sweep_values.append([x_sample, y_sample])
+        sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
+            log_behaviour_start,
+            len(text) - 1,
+            log_step))
         return sweep_values
     return False
 def linear_func(variable, slope, y_intercept):
