@@ -27,6 +27,7 @@ install:
 download_test_assets:
 	mkdir test/
 	mkdir test/db
+	touch test/db/library_test.db
 	mkdir test/books
 	wget https://www.gutenberg.org/ebooks/24264.epub.noimages?session_id=13a48cb17a2a788bd0df32eb9d11b2cc90e5ffb6 -O test/books/hongloumeng.epub
 	wget https://www.gutenberg.org/ebooks/6099.epub.noimages?session_id=e525c6c0f4f2faf96f365aabedf179ef08f4f236 -O test/books/lesfleursdumal.epub
