@@ -156,8 +156,8 @@ class Book(object):
         Tokenization.
         '''
         if self.language == 'zh' or self.language == 'zh_Hant':
-            self.zh_characters = tuple(''.join(character for character in self.text
-                                               if u'\u4e00' <= character <= u'\u9fff'))
+            self.zh_characters = ''.join(character for character in self.text
+                                         if u'\u4e00' <= character <= u'\u9fff')
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         self.tokens = Text(self.text).words
