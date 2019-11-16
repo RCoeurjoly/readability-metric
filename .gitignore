@@ -2,6 +2,7 @@
 include/
 share/
 lib/
+dump/
 local/
 bin/
 db/
