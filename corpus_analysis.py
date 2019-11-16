@@ -6,7 +6,7 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 '''
 # Imports
 import unicodedata
-#import icu
+import icu
 import sys
 import os
 import math
@@ -73,17 +73,24 @@ class Book(object):
         self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
         self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
         if samples:
+            print "Extracting metadata"
             self.extract_metadata()
+            print "Extracting text"
             self.extract_text()
+            print "Detecting language"
             self.detect_language()
+            print "Tokenization"
             self.tokenize()
+            print "Calculating word sweep values"
             sweep_values = lexical_sweep(self.tokens, samples)
             self.fit = []
+            print "Word fit"
             self.extract_fit_parameters("words", sweep_values)
             if self.language == "zh" or self.language == "zh_Hant":
+                print "Calculating character sweep values"
                 sweep_values = lexical_sweep(self.zh_characters, samples)
+                print "Character fit"
                 self.extract_fit_parameters("characters", sweep_values)
-            self.delete_heavy_attributes()
     def extract_metadata(self):
         '''
         Extraction of metadata
@@ -194,21 +201,9 @@ class Book(object):
         if not hasattr(self, 'text'):
             self.extract_text()
         self.language = Text(self.text).language.code
-    def release_text(self):
-        '''
-        Release text.
-        '''
-        self.text = str()
-    def release_zh_characters(self):
-        '''
-        Release Chinese characters.
-        '''
-        self.zh_characters = str()
-    def release_tokens(self):
-        '''
-        Release tokens.
-        '''
-        self.tokens = str()
+    
+    
+    
     def extract_fit_parameters(self, analysis_type, sweep_values):
         '''
         Curve fit.
@@ -245,22 +240,14 @@ class Book(object):
                              'slope': slope,
                              'std_error_intercept': std_error_intercept,
                              'std_error_slope': std_error_slope})
-    def delete_heavy_attributes(self):
-        '''
-        Delete heavy attributes.
-        '''
-        del self.text
-        del self.tokens
-        try:
-            del self.zh_characters
-        except AttributeError as ex:
-            print ex
 # Functions
 def clean_non_printable(text):
     '''
     Remove all non printable characters from string.
     '''
-    return ''.join(character for character in text if unicodedata.category(character) in PRINTABLE or character == '.' )
+    return ''.join(character for character in text
+                   if unicodedata.category(character) in PRINTABLE
+                   or character != '.')
 def clean_dots(dictionary):
     '''
     Remove dot form dictionary.
@@ -482,33 +469,33 @@ def runbackup(hostname,
         print("Backup failed for", hostname)
 ### MongoDB
 def mongo_connection(database, client="mongodb://localhost:27017/", collection="corpus"):
-    global mycol
     myclient = pymongo.MongoClient(client)
     mydb = myclient[database]
     mycol = mydb[collection]
+    return myclient, mydb, mycol
 def insert_book_mongo(book, collection):
     collection.insert_one(book.__dict__)
-def is_book_in_mongodb(book):
+def is_book_in_mongodb(book, collection):
     myquery = { "author": book.author, "title": book.title}
-    mydoc = mycol.find_one(myquery)
+    mydoc = collection.find_one(myquery)
     if mydoc:
         return True
     return False
 def backup_mongo(db):
     '''
-    Write sql file.
+    Write mongo file as json.
     '''
     try:
+        print db
         backup = subprocess.Popen("mongodump --host localhost --db "
                                   + db)
-
         # Wait for completion
         backup.communicate()
         if backup.returncode != 0:
             sys.exit(1)
         else:
             print "Backup done for " + db
-    except Exception as ex:
+    except OSError as ex:
         # Check for errors
         print ex
         print "Backup failed for " + db
@@ -519,30 +506,30 @@ def analyse_directory(argv):
     Analyze them and populate data in database
     :param argv: command line args.
     '''
-    books_analyzed = 0
     corpus_path = str(argv[1])
     db = str(argv[2])
-    db_file = str(argv[3])
-    mongo_connection(db)
+    books_analyzed = 0
+    myclient, __, mycol = mongo_connection(db)
     for dirpath, __, files in os.walk(corpus_path):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
-                    my_book = Book(dirpath + '/' + ebook, samples=0)
+                    print "First constructor"
+                    my_book = Book(dirpath + '/' + ebook)
                     print "Checking if book exists in database"
-                    if is_book_in_mongodb(my_book):
+                    if is_book_in_mongodb(my_book, mycol):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
                     my_book = Book(dirpath + '/' + ebook, samples=10)
                     print "Writing to database"
-                    mycol.insert_one(my_book.__dict__)
+                    mycol.insert_one(my_book.__dict__, mycol)
                     print "Performing backup"
                     backup_mongo(db)
                     books_analyzed += 1
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
-    MY_DB.close()
+    myclient.close()
 
 if __name__ == '__main__':
     analyse_directory(sys.argv)

@@ -89,30 +89,30 @@ def analyse_directory(argv):
     Analyze them and populate data in database
     :param argv: command line args.
     '''
-    books_analyzed = 0
     corpus_path = str(argv[1])
     db = str(argv[2])
-    db_file = str(argv[3])
-    mongo_connection(db)
+    books_analyzed = 0
+    myclient, __, mycol = mongo_connection(db)
     for dirpath, __, files in os.walk(corpus_path):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
-                    my_book = Book(dirpath + '/' + ebook, samples=0)
+                    print "First constructor"
+                    my_book = Book(dirpath + '/' + ebook)
                     print "Checking if book exists in database"
-                    if is_book_in_mongodb(my_book):
+                    if is_book_in_mongodb(my_book, mycol):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
                     my_book = Book(dirpath + '/' + ebook, samples=10)
                     print "Writing to database"
-                    mycol.insert_one(my_book.__dict__)
+                    mycol.insert_one(my_book.__dict__, mycol)
                     print "Performing backup"
                     backup_mongo(db)
                     books_analyzed += 1
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
-    MY_DB.close()
+    myclient.close()
 
 if __name__ == '__main__':
     analyse_directory(sys.argv)
@@ -231,7 +231,6 @@ class Book(object):
     <<release-zh-characters>>
     <<release-tokens>>
     <<curve-fit>>
-    <<delete-heavy-attributes>>
     #+end_src
 
 *** Constructor
@@ -249,17 +248,24 @@ def __init__(self, epub_filename, samples=0):
     self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
     self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
     if samples:
+        print "Extracting metadata"
         self.extract_metadata()
+        print "Extracting text"
         self.extract_text()
+        print "Detecting language"
         self.detect_language()
+        print "Tokenization"
         self.tokenize()
+        print "Calculating word sweep values"
         sweep_values = lexical_sweep(self.tokens, samples)
         self.fit = []
+        print "Word fit"
         self.extract_fit_parameters("words", sweep_values)
         if self.language == "zh" or self.language == "zh_Hant":
+            print "Calculating character sweep values"
             sweep_values = lexical_sweep(self.zh_characters, samples)
+            print "Character fit"
             self.extract_fit_parameters("characters", sweep_values)
-        self.delete_heavy_attributes()
 #+END_SRC
 *** Extracting metadata
 #+NAME: metadata
@@ -395,7 +401,9 @@ def clean_non_printable(text):
     '''
     Remove all non printable characters from string.
     '''
-    return ''.join(character for character in text if unicodedata.category(character) in PRINTABLE or character == '.' )
+    return ''.join(character for character in text
+                   if unicodedata.category(character) in PRINTABLE
+                   or character != '.')
 #+END_SRC
 MongoDB doesnt like storing dots
 #+NAME: dot-cleaning
@@ -460,46 +468,6 @@ def get_freq_dist(self):
         print ex
 #+END_SRC
 
-*** Release text and delete attributes
-    I conjecturize that holding a lot of text in memory is very expensive.
-#+NAME: release-text
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def release_text(self):
-    '''
-    Release text.
-    '''
-    self.text = str()
-#+END_SRC
-#+NAME: release-zh-characters
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def release_zh_characters(self):
-    '''
-    Release Chinese characters.
-    '''
-    self.zh_characters = str()
-    #+END_SRC
-#+NAME: release-tokens
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def release_tokens(self):
-    '''
-    Release tokens.
-    '''
-    self.tokens = str()
-#+END_SRC
-#+NAME: delete-heavy-attributes
-#+BEGIN_SRC python :noweb yes :session python :exports code
-def delete_heavy_attributes(self):
-    '''
-    Delete heavy attributes.
-    '''
-    del self.text
-    del self.tokens
-    try:
-        del self.zh_characters
-    except AttributeError as ex:
-        print ex
-#+END_SRC
-
 ** Learnable words
 ** Imports
    We import some packages to make our life easier:
@@ -510,7 +478,7 @@ def delete_heavy_attributes(self):
 #+NAME: imports
 #+BEGIN_SRC python :session python :results none :exports code
 import unicodedata
-#import icu
+import icu
 import sys
 import os
 import math
@@ -620,7 +588,6 @@ print margin_unknowable_list
 Unit testing for the corpus analysis
 '''
 import timeout_decorator
-import pymongo
 import unittest
 import json
 import mysql
@@ -732,7 +699,6 @@ class MyTest(unittest.TestCase):
     #     mycol = mydb["corpus"]
     #     mycol.drop()
     #     analyse_directory(my_args)
-
 
 if __name__ == '__main__':
     unittest.main(failfast=True)
@@ -1135,10 +1101,10 @@ plot f(x) w lp lw 1, g(x) w p lw 2, h(x) w l lw 3, i(x) w l lw 4
 #+NAME: mongodb_connection
 #+begin_src python :noweb yes :session python :exports code
 def mongo_connection(database, client="mongodb://localhost:27017/", collection="corpus"):
-    global mycol
     myclient = pymongo.MongoClient(client)
     mydb = myclient[database]
     mycol = mydb[collection]
+    return myclient, mydb, mycol
 #+end_src
 ** Insert
    #+NAME: insert_book_mongo
@@ -1150,9 +1116,9 @@ def insert_book_mongo(book, collection):
 ** Check
 #+NAME: check_book_mongo
 #+begin_src python :noweb yes :session python :exports code
-def is_book_in_mongodb(book):
+def is_book_in_mongodb(book, collection):
     myquery = { "author": book.author, "title": book.title}
-    mydoc = mycol.find_one(myquery)
+    mydoc = collection.find_one(myquery)
     if mydoc:
         return True
     return False
@@ -1185,24 +1151,27 @@ print mydoc
 #+begin_src python :noweb yes :session python :exports code
 def backup_mongo(db):
     '''
-    Write sql file.
+    Write mongo file as json.
     '''
     try:
+        print db
         backup = subprocess.Popen("mongodump --host localhost --db "
                                   + db)
-
         # Wait for completion
         backup.communicate()
         if backup.returncode != 0:
             sys.exit(1)
         else:
             print "Backup done for " + db
-    except Exception as ex:
+    except OSError as ex:
         # Check for errors
         print ex
         print "Backup failed for " + db
 #+end_src
 
+#+RESULTS: backup_mongo
+
+** Close
 ** Issues
 *** InvalidDocument: key 'edition.Most' must not contain '.'
     #+begin_src python :results output :session python

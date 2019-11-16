@@ -3,7 +3,6 @@
 Unit testing for the corpus analysis
 '''
 import timeout_decorator
-import pymongo
 import unittest
 import json
 import mysql
@@ -115,7 +114,6 @@ class MyTest(unittest.TestCase):
     #     mycol = mydb["corpus"]
     #     mycol.drop()
     #     analyse_directory(my_args)
-
 
 if __name__ == '__main__':
     unittest.main(failfast=True)
