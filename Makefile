@@ -7,7 +7,7 @@ isort:
 lint:
 	flake8 --exclude=.tox
 
-test: clean download_test_assets setup_env
+test: clean download_test_assets setup_mongo
 	python test_corpus_analysis.py
 
 test_without_download:
@@ -15,6 +15,8 @@ test_without_download:
 
 setup_env:
 	virtualenv ~/readability-metric
+
+setup_mongo:
 	sudo service mongod start
 	rm /var/lib/mongodb/mongod.lock
 
