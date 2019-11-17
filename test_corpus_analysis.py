@@ -2,6 +2,7 @@
 '''
 Unit testing for the corpus analysis
 '''
+import pymongo
 import timeout_decorator
 import unittest
 import json
@@ -90,7 +91,7 @@ class MyTest(unittest.TestCase):
         my_book = Book("test/books/hongloumeng.epub", 10)
         self.assertEqual(True, True)
 
-    @timeout_decorator.timeout(100)
+    @timeout_decorator.timeout(90)
     def test_fit(self):
         '''
         Given a certain book, test fit
@@ -102,18 +103,25 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.fit, benchmark['fit'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 
-    # @timeout_decorator.timeout(900)
-    # def test_db_writing(self):
-    #     '''
-    #     Write all books to database
-    #     '''
-    #     my_args = ["whatever", "test/", "library_test", "test/db/library_test.db"]
-    #     # Drop database
-    #     myclient = pymongo.MongoClient("mongodb://localhost:27017/")
-    #     mydb = myclient["library_test"]
-    #     mycol = mydb["corpus"]
-    #     mycol.drop()
-    #     analyse_directory(my_args)
+    @timeout_decorator.timeout(90)
+    def test_db_writing(self):
+        '''
+        Write all books to database
+        '''
+        my_args = ["whatever", "test/", "library_test"]
+        # # Drop database
+        myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+        mydb = myclient["library_test"]
+        mycol = mydb["corpus"]
+        mycol.drop()
+        analyse_directory(my_args)
+        with open("benchmarks.json", "r") as test_cases:
+            benchmarks = json.load(test_cases)
+            for benchmark in benchmarks['books']:
+                for result in mycol.find({}, {"_id":False}):
+                    if benchmark['title'] == result['title']:
+                        self.assertEqual(result, benchmark)
+                        print "Database write for " + benchmark['title'].encode('utf-8') + " OK"
 
 if __name__ == '__main__':
     unittest.main(failfast=True)

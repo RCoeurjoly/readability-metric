@@ -112,6 +112,7 @@ def analyse_directory(argv):
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
+    print "Closing db"
     myclient.close()
 
 if __name__ == '__main__':
@@ -205,14 +206,14 @@ def log_log_func(variable, coefficient, intercept):
     return math.e**(coefficient*log(variable) + intercept)
 #+end_src
 
-** Ebook handling
+** Book class
 
    We then proceed to open the epub and extract all metadata.
    As stated in the [[https://ebooklib.readthedocs.io/en/latest/tutorial.html#reading-epub][package documentation]], only creator, title and language are required metadata fields.
    The rest is optional, so we catch them with care.
 
    We then use BeautifulSoup to remove all html marks.
-*** Book class
+*** Book class architecture
 #+NAME: book-class
 #+BEGIN_SRC python :noweb yes :session python :exports code
 class Book(object):
@@ -231,6 +232,7 @@ class Book(object):
     <<release-zh-characters>>
     <<release-tokens>>
     <<curve-fit>>
+    <<delete>>
     #+end_src
 
 *** Constructor
@@ -266,6 +268,7 @@ def __init__(self, epub_filename, samples=0):
             sweep_values = lexical_sweep(self.zh_characters, samples)
             print "Character fit"
             self.extract_fit_parameters("characters", sweep_values)
+        self.delete_heavy_attributes()
 #+END_SRC
 *** Extracting metadata
 #+NAME: metadata
@@ -402,8 +405,7 @@ def clean_non_printable(text):
     Remove all non printable characters from string.
     '''
     return ''.join(character for character in text
-                   if unicodedata.category(character) in PRINTABLE
-                   or character != '.')
+                   if unicodedata.category(character) in PRINTABLE)
 #+END_SRC
 MongoDB doesnt like storing dots
 #+NAME: dot-cleaning
@@ -442,7 +444,7 @@ def tokenize(self):
         self.character_count = len(self.zh_characters)
         self.unique_characters = len(set(self.zh_characters))
     self.tokens = Text(self.text).words
-    self.tokens.remove('.')
+    #self.tokens.remove('.')
     self.word_count = len(self.tokens)
     self.unique_words = len(set(self.tokens))
 #+END_SRC
@@ -467,7 +469,35 @@ def get_freq_dist(self):
     except KeyError as ex:
         print ex
 #+END_SRC
-
+*** Delete
+#+NAME: delete
+#+BEGIN_SRC python :noweb yes :session python :exports code
+def release_text(self):
+    '''
+    Release text.
+    '''
+    self.text = str()
+def release_zh_characters(self):
+    '''
+    Release Chinese characters.
+    '''
+    self.zh_characters = str()
+def release_tokens(self):
+    '''
+    Release tokens.
+    '''
+    self.tokens = str()
+def delete_heavy_attributes(self):
+    '''
+    Delete heavy attributes.
+    '''
+    del self.text
+    del self.tokens
+    try:
+        del self.zh_characters
+    except AttributeError:
+        pass
+#+END_SRC
 ** Learnable words
 ** Imports
    We import some packages to make our life easier:
@@ -587,6 +617,7 @@ print margin_unknowable_list
 '''
 Unit testing for the corpus analysis
 '''
+import pymongo
 import timeout_decorator
 import unittest
 import json
@@ -675,7 +706,7 @@ class MyTest(unittest.TestCase):
         my_book = Book("test/books/hongloumeng.epub", 10)
         self.assertEqual(True, True)
 
-    @timeout_decorator.timeout(100)
+    @timeout_decorator.timeout(90)
     def test_fit(self):
         '''
         Given a certain book, test fit
@@ -687,18 +718,25 @@ class MyTest(unittest.TestCase):
                 self.assertEqual(my_book.fit, benchmark['fit'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 
-    # @timeout_decorator.timeout(900)
-    # def test_db_writing(self):
-    #     '''
-    #     Write all books to database
-    #     '''
-    #     my_args = ["whatever", "test/", "library_test", "test/db/library_test.db"]
-    #     # Drop database
-    #     myclient = pymongo.MongoClient("mongodb://localhost:27017/")
-    #     mydb = myclient["library_test"]
-    #     mycol = mydb["corpus"]
-    #     mycol.drop()
-    #     analyse_directory(my_args)
+    @timeout_decorator.timeout(90)
+    def test_db_writing(self):
+        '''
+        Write all books to database
+        '''
+        my_args = ["whatever", "test/", "library_test"]
+        # # Drop database
+        myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+        mydb = myclient["library_test"]
+        mycol = mydb["corpus"]
+        mycol.drop()
+        analyse_directory(my_args)
+        with open("benchmarks.json", "r") as test_cases:
+            benchmarks = json.load(test_cases)
+            for benchmark in benchmarks['books']:
+                for result in mycol.find({}, {"_id":False}):
+                    if benchmark['title'] == result['title']:
+                        self.assertEqual(result, benchmark)
+                        print "Database write for " + benchmark['title'].encode('utf-8') + " OK"
 
 if __name__ == '__main__':
     unittest.main(failfast=True)
@@ -1155,8 +1193,8 @@ def backup_mongo(db):
     '''
     try:
         print db
-        backup = subprocess.Popen("mongodump --host localhost --db "
-                                  + db)
+        backup = subprocess.Popen(["mongodump", "--host", "localhost", "--db",
+                                   db])
         # Wait for completion
         backup.communicate()
         if backup.returncode != 0:

@@ -91,6 +91,7 @@ class Book(object):
                 sweep_values = lexical_sweep(self.zh_characters, samples)
                 print "Character fit"
                 self.extract_fit_parameters("characters", sweep_values)
+            self.delete_heavy_attributes()
     def extract_metadata(self):
         '''
         Extraction of metadata
@@ -160,7 +161,7 @@ class Book(object):
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         self.tokens = Text(self.text).words
-        self.tokens.remove('.')
+        #self.tokens.remove('.')
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
     def get_freq_dist(self):
@@ -240,14 +241,38 @@ class Book(object):
                              'slope': slope,
                              'std_error_intercept': std_error_intercept,
                              'std_error_slope': std_error_slope})
+    def release_text(self):
+        '''
+        Release text.
+        '''
+        self.text = str()
+    def release_zh_characters(self):
+        '''
+        Release Chinese characters.
+        '''
+        self.zh_characters = str()
+    def release_tokens(self):
+        '''
+        Release tokens.
+        '''
+        self.tokens = str()
+    def delete_heavy_attributes(self):
+        '''
+        Delete heavy attributes.
+        '''
+        del self.text
+        del self.tokens
+        try:
+            del self.zh_characters
+        except AttributeError:
+            pass
 # Functions
 def clean_non_printable(text):
     '''
     Remove all non printable characters from string.
     '''
     return ''.join(character for character in text
-                   if unicodedata.category(character) in PRINTABLE
-                   or character != '.')
+                   if unicodedata.category(character) in PRINTABLE)
 def clean_dots(dictionary):
     '''
     Remove dot form dictionary.
@@ -487,8 +512,8 @@ def backup_mongo(db):
     '''
     try:
         print db
-        backup = subprocess.Popen("mongodump --host localhost --db "
-                                  + db)
+        backup = subprocess.Popen(["mongodump", "--host", "localhost", "--db",
+                                   db])
         # Wait for completion
         backup.communicate()
         if backup.returncode != 0:
@@ -529,6 +554,7 @@ def analyse_directory(argv):
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
+    print "Closing db"
     myclient.close()
 
 if __name__ == '__main__':
