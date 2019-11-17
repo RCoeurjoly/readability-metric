@@ -16,6 +16,7 @@ test_without_download:
 setup_env:
 	virtualenv ~/readability-metric
 	sudo service mongod start
+	rm /var/lib/mongodb/mongod.lock
 
 run: source
 	python /home/rcl/readability-measure/corpus_analysis.py /media/root/terabyte
