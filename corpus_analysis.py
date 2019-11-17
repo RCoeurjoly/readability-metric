@@ -525,6 +525,10 @@ def backup_mongo(db):
         print ex
         print "Backup failed for " + db
 # Main function
+def correct_dirpath(dirpath):
+    if dirpath.endswith('/'):
+        return dirpath
+    return dirpath + '/'
 def analyse_directory(argv):
     '''
     Main function: open and read all epub files in directory.
@@ -540,12 +544,14 @@ def analyse_directory(argv):
             if ebook.endswith(".epub"):
                 try:
                     print "First constructor"
-                    my_book = Book(dirpath + '/' + ebook)
+                    my_book = Book(correct_dirpath(dirpath)
+                                   + ebook)
                     print "Checking if book exists in database"
                     if is_book_in_mongodb(my_book, mycol):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
-                    my_book = Book(dirpath + '/' + ebook, samples=10)
+                    my_book = Book(correct_dirpath(dirpath)
+                                   + ebook, samples=10)
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__, mycol)
                     print "Performing backup"

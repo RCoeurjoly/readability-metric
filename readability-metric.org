@@ -83,6 +83,10 @@ wget -w 2 -m -H "http://www.gutenberg.org/robot/harvest?filetypes[]=epub.noimage
 ** Main
  #+NAME: main
  #+BEGIN_SRC python :noweb yes :session python :exports code
+def correct_dirpath(dirpath):
+    if dirpath.endswith('/'):
+        return dirpath
+    return dirpath + '/'
 def analyse_directory(argv):
     '''
     Main function: open and read all epub files in directory.
@@ -98,12 +102,14 @@ def analyse_directory(argv):
             if ebook.endswith(".epub"):
                 try:
                     print "First constructor"
-                    my_book = Book(dirpath + '/' + ebook)
+                    my_book = Book(correct_dirpath(dirpath)
+                                   + ebook)
                     print "Checking if book exists in database"
                     if is_book_in_mongodb(my_book, mycol):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
-                    my_book = Book(dirpath + '/' + ebook, samples=10)
+                    my_book = Book(correct_dirpath(dirpath)
+                                   + ebook, samples=10)
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__, mycol)
                     print "Performing backup"
@@ -753,7 +759,7 @@ Create benchmark based on epubs
 import json
 import os
 import corpus_analysis
-
+from corpus_analysis import correct_dirpath
 DATA = {}
 DATA['books'] = []
 
@@ -761,7 +767,8 @@ with open('benchmarks.json', 'w') as outfile:
     for dirpath, __, files in os.walk('test/books/'):
         for ebook in files:
             print "Reading book"
-            my_book = corpus_analysis.Book(dirpath + '/' + ebook, 10)
+            my_book = corpus_analysis.Book(correct_dirpath(dirpath)
+                                           + ebook, 10)
             print "Book read"
             DATA['books'].append(my_book.__dict__)
             outfile.write('\n')
