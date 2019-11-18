@@ -101,10 +101,9 @@ def analyse_directory(argv):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
-                    print "First constructor"
+                    print "Checking if book " + ebook + " is in database"
                     my_book = Book(correct_dirpath(dirpath)
                                    + ebook)
-                    print "Checking if book exists in database"
                     if is_book_in_mongodb(my_book, mycol):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
@@ -125,6 +124,8 @@ if __name__ == '__main__':
     analyse_directory(sys.argv)
  #+END_SRC
 
+ #+RESULTS: main
+
  #+RESULTS: epub-handling
 ** Lexical sweep and curve fitting
    We can only do the curve fitting with books longer than 10000 tokens. This is because, to begin with, books don't exhibit logarithmic behavior until they reach around 4 thousand words.
@@ -135,17 +136,21 @@ def lexical_sweep(text, samples=10):
     '''
     Lexical sweep.
     '''
-    log_behaviour_start = 5000
-    sweep_values = []
-    log_behaviour_range = len(text) - log_behaviour_start
-    log_step = log_behaviour_range/(samples - 1)
-    if len(text) > 10000 and samples >= 2:
-        sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
-            log_behaviour_start,
-            len(text) + 1,
-            log_step))
-        return sweep_values
-    return False
+    try:
+        log_behaviour_start = 5000
+        sweep_values = []
+        log_behaviour_range = len(text) - log_behaviour_start
+        log_step = log_behaviour_range/(samples - 1)
+        if len(text) > 10000 and samples >= 2:
+            sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
+                log_behaviour_start,
+                len(text) + 1,
+                log_step))
+            return sweep_values
+        return False
+    except AttributeError as ex:
+        print ex
+        return False
 #+END_SRC
 
 #+NAME: curve-fit
@@ -251,30 +256,33 @@ def __init__(self, epub_filename, samples=0):
     '''
     # pylint: disable=too-many-statements
     # There is a lot of metadata but it is repetitive and non problematic.
-    epub_file = epub.read_epub(epub_filename)
-    self.filepath = epub_filename
-    self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-    self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
-    if samples:
-        print "Extracting metadata"
-        self.extract_metadata()
-        print "Extracting text"
-        self.extract_text()
-        print "Detecting language"
-        self.detect_language()
-        print "Tokenization"
-        self.tokenize()
-        print "Calculating word sweep values"
-        sweep_values = lexical_sweep(self.tokens, samples)
-        self.fit = []
-        print "Word fit"
-        self.extract_fit_parameters("words", sweep_values)
-        if self.language == "zh" or self.language == "zh_Hant":
-            print "Calculating character sweep values"
-            sweep_values = lexical_sweep(self.zh_characters, samples)
-            print "Character fit"
-            self.extract_fit_parameters("characters", sweep_values)
-        self.delete_heavy_attributes()
+    try:
+        epub_file = epub.read_epub(epub_filename)
+        self.filepath = epub_filename
+        self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+        self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
+        if samples:
+            print "Extracting metadata"
+            self.extract_metadata()
+            print "Extracting text"
+            self.extract_text()
+            print "Detecting language"
+            self.detect_language()
+            print "Tokenization"
+            self.tokenize()
+            print "Calculating word sweep values"
+            sweep_values = lexical_sweep(self.tokens, samples)
+            self.fit = []
+            print "Word fit"
+            self.extract_fit_parameters("words", sweep_values)
+            if self.language == "zh" or self.language == "zh_Hant":
+                print "Calculating character sweep values"
+                sweep_values = lexical_sweep(self.zh_characters, samples)
+                print "Character fit"
+                self.extract_fit_parameters("characters", sweep_values)
+            self.delete_heavy_attributes()
+    except AttributeError:
+        pass
 #+END_SRC
 *** Extracting metadata
 #+NAME: metadata
@@ -444,15 +452,19 @@ def tokenize(self):
     '''
     Tokenization.
     '''
-    if self.language == 'zh' or self.language == 'zh_Hant':
-        self.zh_characters = ''.join(character for character in self.text
-                                     if u'\u4e00' <= character <= u'\u9fff')
-        self.character_count = len(self.zh_characters)
-        self.unique_characters = len(set(self.zh_characters))
-    self.tokens = Text(self.text).words
-    #self.tokens.remove('.')
-    self.word_count = len(self.tokens)
-    self.unique_words = len(set(self.tokens))
+    try:
+        if self.language == 'zh' or self.language == 'zh_Hant':
+            self.zh_characters = ''.join(character for character in self.text
+                                         if u'\u4e00' <= character <= u'\u9fff')
+            self.character_count = len(self.zh_characters)
+            self.unique_characters = len(set(self.zh_characters))
+        self.tokens = Text(self.text).words
+        #self.tokens.remove('.')
+        self.word_count = len(self.tokens)
+        self.unique_words = len(set(self.tokens))
+    except ValueError as ex:
+        print ex
+        self.tokens = []
 #+END_SRC
 *** Frequency distributions
 #+NAME: freq-dist
@@ -1162,11 +1174,14 @@ def insert_book_mongo(book, collection):
 #+NAME: check_book_mongo
 #+begin_src python :noweb yes :session python :exports code
 def is_book_in_mongodb(book, collection):
-    myquery = { "author": book.author, "title": book.title}
-    mydoc = collection.find_one(myquery)
-    if mydoc:
+    try:
+        myquery = { "author": book.author, "title": book.title}
+        mydoc = collection.find_one(myquery)
+        if mydoc:
+            return True
+        return False
+    except AttributeError:
         return True
-    return False
 #+end_src
 
 #+begin_src python :results output :session python

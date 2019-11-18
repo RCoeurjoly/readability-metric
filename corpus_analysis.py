@@ -68,30 +68,33 @@ class Book(object):
         '''
         # pylint: disable=too-many-statements
         # There is a lot of metadata but it is repetitive and non problematic.
-        epub_file = epub.read_epub(epub_filename)
-        self.filepath = epub_filename
-        self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-        self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
-        if samples:
-            print "Extracting metadata"
-            self.extract_metadata()
-            print "Extracting text"
-            self.extract_text()
-            print "Detecting language"
-            self.detect_language()
-            print "Tokenization"
-            self.tokenize()
-            print "Calculating word sweep values"
-            sweep_values = lexical_sweep(self.tokens, samples)
-            self.fit = []
-            print "Word fit"
-            self.extract_fit_parameters("words", sweep_values)
-            if self.language == "zh" or self.language == "zh_Hant":
-                print "Calculating character sweep values"
-                sweep_values = lexical_sweep(self.zh_characters, samples)
-                print "Character fit"
-                self.extract_fit_parameters("characters", sweep_values)
-            self.delete_heavy_attributes()
+        try:
+            epub_file = epub.read_epub(epub_filename)
+            self.filepath = epub_filename
+            self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+            self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
+            if samples:
+                print "Extracting metadata"
+                self.extract_metadata()
+                print "Extracting text"
+                self.extract_text()
+                print "Detecting language"
+                self.detect_language()
+                print "Tokenization"
+                self.tokenize()
+                print "Calculating word sweep values"
+                sweep_values = lexical_sweep(self.tokens, samples)
+                self.fit = []
+                print "Word fit"
+                self.extract_fit_parameters("words", sweep_values)
+                if self.language == "zh" or self.language == "zh_Hant":
+                    print "Calculating character sweep values"
+                    sweep_values = lexical_sweep(self.zh_characters, samples)
+                    print "Character fit"
+                    self.extract_fit_parameters("characters", sweep_values)
+                self.delete_heavy_attributes()
+        except AttributeError:
+            pass
     def extract_metadata(self):
         '''
         Extraction of metadata
@@ -155,15 +158,19 @@ class Book(object):
         '''
         Tokenization.
         '''
-        if self.language == 'zh' or self.language == 'zh_Hant':
-            self.zh_characters = ''.join(character for character in self.text
-                                         if u'\u4e00' <= character <= u'\u9fff')
-            self.character_count = len(self.zh_characters)
-            self.unique_characters = len(set(self.zh_characters))
-        self.tokens = Text(self.text).words
-        #self.tokens.remove('.')
-        self.word_count = len(self.tokens)
-        self.unique_words = len(set(self.tokens))
+        try:
+            if self.language == 'zh' or self.language == 'zh_Hant':
+                self.zh_characters = ''.join(character for character in self.text
+                                             if u'\u4e00' <= character <= u'\u9fff')
+                self.character_count = len(self.zh_characters)
+                self.unique_characters = len(set(self.zh_characters))
+            self.tokens = Text(self.text).words
+            #self.tokens.remove('.')
+            self.word_count = len(self.tokens)
+            self.unique_words = len(set(self.tokens))
+        except ValueError as ex:
+            print ex
+            self.tokens = []
     def get_freq_dist(self):
         '''
         Frequency distribution for both .
@@ -283,17 +290,21 @@ def lexical_sweep(text, samples=10):
     '''
     Lexical sweep.
     '''
-    log_behaviour_start = 5000
-    sweep_values = []
-    log_behaviour_range = len(text) - log_behaviour_start
-    log_step = log_behaviour_range/(samples - 1)
-    if len(text) > 10000 and samples >= 2:
-        sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
-            log_behaviour_start,
-            len(text) + 1,
-            log_step))
-        return sweep_values
-    return False
+    try:
+        log_behaviour_start = 5000
+        sweep_values = []
+        log_behaviour_range = len(text) - log_behaviour_start
+        log_step = log_behaviour_range/(samples - 1)
+        if len(text) > 10000 and samples >= 2:
+            sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
+                log_behaviour_start,
+                len(text) + 1,
+                log_step))
+            return sweep_values
+        return False
+    except AttributeError as ex:
+        print ex
+        return False
 def linear_func(variable, slope, y_intercept):
     '''
     Linear model.
@@ -501,11 +512,14 @@ def mongo_connection(database, client="mongodb://localhost:27017/", collection="
 def insert_book_mongo(book, collection):
     collection.insert_one(book.__dict__)
 def is_book_in_mongodb(book, collection):
-    myquery = { "author": book.author, "title": book.title}
-    mydoc = collection.find_one(myquery)
-    if mydoc:
+    try:
+        myquery = { "author": book.author, "title": book.title}
+        mydoc = collection.find_one(myquery)
+        if mydoc:
+            return True
+        return False
+    except AttributeError:
         return True
-    return False
 def backup_mongo(db):
     '''
     Write mongo file as json.
@@ -543,10 +557,9 @@ def analyse_directory(argv):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
-                    print "First constructor"
+                    print "Checking if book " + ebook + " is in database"
                     my_book = Book(correct_dirpath(dirpath)
                                    + ebook)
-                    print "Checking if book exists in database"
                     if is_book_in_mongodb(my_book, mycol):
                         continue
                     print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
