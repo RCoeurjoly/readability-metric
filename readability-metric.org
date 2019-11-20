@@ -111,12 +111,15 @@ def analyse_directory(argv):
                                    + ebook, samples=10)
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__, mycol)
-                    print "Performing backup"
-                    backup_mongo(db)
+                    if books_analyzed%10 == 0:
+                        print "Performing backup"
+                        backup_mongo(db)
                     books_analyzed += 1
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
+    print "Performing final backup"
+    backup_mongo(db)
     print "Closing db"
     myclient.close()
 
@@ -132,7 +135,22 @@ if __name__ == '__main__':
    Moreover, we need to have enough samples to be able to feed the piece of software that does the curve fitting.
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def lexical_sweep(text, samples=10):
+def lexical_sweep_map(start, stop, step, text):
+    return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
+                                                          stop,
+                                                          step))
+
+def lexical_sweep_list_comprehension(start, stop, step, text):
+     return [[x, len(set(text[0:x]))] for x in xrange(start,
+                                                      stop,
+                                                      step)]
+
+def lexical_sweep_for_loop(start, stop, step, text):
+    return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
+                                                          stop,
+                                                          step))
+
+def lexical_sweep(text, slicing_function=lexical_sweep_map, samples=10):
     '''
     Lexical sweep.
     '''
@@ -142,16 +160,16 @@ def lexical_sweep(text, samples=10):
         log_behaviour_range = len(text) - log_behaviour_start
         log_step = log_behaviour_range/(samples - 1)
         if len(text) > 10000 and samples >= 2:
-            sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
-                log_behaviour_start,
-                len(text) + 1,
-                log_step))
+            sweep_values = slicing_function(log_behaviour_start,
+                                            len(text) + 1,
+                                            log_step,
+                                            text)
             return sweep_values
         return False
     except AttributeError as ex:
         print ex
         return False
-#+END_SRC
+     #+END_SRC
 
 #+NAME: curve-fit
 #+BEGIN_SRC python :noweb yes :session python :exports code
@@ -250,7 +268,7 @@ class Book(object):
     We don't extract all text in constructor because it is expensive and we want to check first if it exists in database.
 #+NAME: constructor
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def __init__(self, epub_filename, samples=0):
+def __init__(self, epub_filename, slicing_function=lexical_sweep_map, samples=0):
     '''
     Init.
     '''
@@ -271,13 +289,13 @@ def __init__(self, epub_filename, samples=0):
             print "Tokenization"
             self.tokenize()
             print "Calculating word sweep values"
-            sweep_values = lexical_sweep(self.tokens, samples)
+            sweep_values = lexical_sweep(self.tokens, slicing_function, samples)
             self.fit = []
             print "Word fit"
             self.extract_fit_parameters("words", sweep_values)
             if self.language == "zh" or self.language == "zh_Hant":
                 print "Calculating character sweep values"
-                sweep_values = lexical_sweep(self.zh_characters, samples)
+                sweep_values = lexical_sweep(self.zh_characters, slicing_function, samples)
                 print "Character fit"
                 self.extract_fit_parameters("characters", sweep_values)
             self.delete_heavy_attributes()
@@ -564,15 +582,15 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 <<imports>>
 # Constants
 <<printable-set>>
+## Curve fitting functions
+<<lexical-sweep>>
+<<fit-functions>>
 # Classes
 ## Book Class
 <<book-class>>
 # Functions
 <<utf8-cleaning>>
 <<dot-cleaning>>
-## Curve fitting functions
-<<lexical-sweep>>
-<<fit-functions>>
 ## Database functions
 ### SQL
 <<db-connection>>
@@ -732,7 +750,7 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'].encode('utf-8'), 10)
+                my_book = Book(benchmark['filepath'].encode('utf-8'), samples=10)
                 self.assertEqual(my_book.fit, benchmark['fit'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 

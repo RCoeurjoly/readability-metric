@@ -99,7 +99,7 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'].encode('utf-8'), 10)
+                my_book = Book(benchmark['filepath'].encode('utf-8'), samples=10)
                 self.assertEqual(my_book.fit, benchmark['fit'])
                 print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
 

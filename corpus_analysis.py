@@ -54,6 +54,58 @@ PRINTABLE = {
     'Zl',
     'Zp',
     'Zs'}
+## Curve fitting functions
+def lexical_sweep_map(start, stop, step, text):
+    return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
+                                                          stop,
+                                                          step))
+
+def lexical_sweep_list_comprehension(start, stop, step, text):
+     return [[x, len(set(text[0:x]))] for x in xrange(start,
+                                                      stop,
+                                                      step)]
+
+def lexical_sweep_for_loop(start, stop, step, text):
+    return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
+                                                          stop,
+                                                          step))
+
+def lexical_sweep(text, slicing_function=lexical_sweep_map, samples=10):
+    '''
+    Lexical sweep.
+    '''
+    try:
+        log_behaviour_start = 5000
+        sweep_values = []
+        log_behaviour_range = len(text) - log_behaviour_start
+        log_step = log_behaviour_range/(samples - 1)
+        if len(text) > 10000 and samples >= 2:
+            sweep_values = slicing_function(log_behaviour_start,
+                                            len(text) + 1,
+                                            log_step,
+                                            text)
+            return sweep_values
+        return False
+    except AttributeError as ex:
+        print ex
+        return False
+def linear_func(variable, slope, y_intercept):
+    '''
+    Linear model.
+    '''
+    return slope*variable + y_intercept
+
+def log_func(variable, coefficient, x_intercept):
+    '''
+    Logarithmic model.
+    '''
+    return coefficient*log(variable) + x_intercept
+
+def log_log_func(variable, coefficient, intercept):
+    '''
+    Log-log model.
+    '''
+    return math.e**(coefficient*log(variable) + intercept)
 # Classes
 ## Book Class
 class Book(object):
@@ -62,7 +114,7 @@ class Book(object):
     '''
     # pylint: disable=too-many-instance-attributes
     # There is a lot of metadata but it is repetitive and non problematic.
-    def __init__(self, epub_filename, samples=0):
+    def __init__(self, epub_filename, slicing_function=lexical_sweep_map, samples=0):
         '''
         Init.
         '''
@@ -83,13 +135,13 @@ class Book(object):
                 print "Tokenization"
                 self.tokenize()
                 print "Calculating word sweep values"
-                sweep_values = lexical_sweep(self.tokens, samples)
+                sweep_values = lexical_sweep(self.tokens, slicing_function, samples)
                 self.fit = []
                 print "Word fit"
                 self.extract_fit_parameters("words", sweep_values)
                 if self.language == "zh" or self.language == "zh_Hant":
                     print "Calculating character sweep values"
-                    sweep_values = lexical_sweep(self.zh_characters, samples)
+                    sweep_values = lexical_sweep(self.zh_characters, slicing_function, samples)
                     print "Character fit"
                     self.extract_fit_parameters("characters", sweep_values)
                 self.delete_heavy_attributes()
@@ -285,43 +337,6 @@ def clean_dots(dictionary):
     Remove dot form dictionary.
     '''
     del dictionary['.']
-## Curve fitting functions
-def lexical_sweep(text, samples=10):
-    '''
-    Lexical sweep.
-    '''
-    try:
-        log_behaviour_start = 5000
-        sweep_values = []
-        log_behaviour_range = len(text) - log_behaviour_start
-        log_step = log_behaviour_range/(samples - 1)
-        if len(text) > 10000 and samples >= 2:
-            sweep_values = map(lambda x: [x, len(set(text[0:x]))], xrange(
-                log_behaviour_start,
-                len(text) + 1,
-                log_step))
-            return sweep_values
-        return False
-    except AttributeError as ex:
-        print ex
-        return False
-def linear_func(variable, slope, y_intercept):
-    '''
-    Linear model.
-    '''
-    return slope*variable + y_intercept
-
-def log_func(variable, coefficient, x_intercept):
-    '''
-    Logarithmic model.
-    '''
-    return coefficient*log(variable) + x_intercept
-
-def log_log_func(variable, coefficient, intercept):
-    '''
-    Log-log model.
-    '''
-    return math.e**(coefficient*log(variable) + intercept)
 ## Database functions
 ### SQL
 MY_DB = mysql.connector.connect(
@@ -567,12 +582,15 @@ def analyse_directory(argv):
                                    + ebook, samples=10)
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__, mycol)
-                    print "Performing backup"
-                    backup_mongo(db)
+                    if books_analyzed%10 == 0:
+                        print "Performing backup"
+                        backup_mongo(db)
                     books_analyzed += 1
                 except (KeyError, TypeError) as ex:
                     print ex
                     continue
+    print "Performing final backup"
+    backup_mongo(db)
     print "Closing db"
     myclient.close()
 
