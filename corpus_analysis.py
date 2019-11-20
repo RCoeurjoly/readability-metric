@@ -121,13 +121,9 @@ class Book(object):
         # pylint: disable=too-many-statements
         # There is a lot of metadata but it is repetitive and non problematic.
         try:
-            epub_file = epub.read_epub(epub_filename)
-            self.filepath = epub_filename
-            self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-            self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
+            print "Extracting metadata"
+            self.extract_metadata(epub_filename)
             if samples:
-                print "Extracting metadata"
-                self.extract_metadata()
                 print "Extracting text"
                 self.extract_text()
                 print "Detecting language"
@@ -147,13 +143,22 @@ class Book(object):
                 self.delete_heavy_attributes()
         except AttributeError:
             pass
-    def extract_metadata(self):
+    def extract_metadata(self, epub_filename):
         '''
         Extraction of metadata
         '''
         # pylint: disable=too-many-statements
         # There is a lot of metadata but it is repetitive and non problematic.
+        self.filepath = epub_filename
         epub_file = epub.read_epub(self.filepath)
+        try:
+            self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
+        try:
+            self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
+        except (IndexError, AttributeError):
+            pass
         try:
             self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
         except (IndexError, AttributeError):
@@ -558,6 +563,15 @@ def correct_dirpath(dirpath):
     if dirpath.endswith('/'):
         return dirpath
     return dirpath + '/'
+
+def get_size(filepath, unit='M'):
+    if unit == 'K':
+        return (os.path.getsize(filepath) >> 10)
+    if unit == 'M':
+        return (os.path.getsize(filepath) >> 20)
+    if unit == 'G':
+        return (os.path.getsize(filepath) >> 30)
+
 def analyse_directory(argv):
     '''
     Main function: open and read all epub files in directory.
@@ -572,14 +586,14 @@ def analyse_directory(argv):
         for ebook in files:
             if ebook.endswith(".epub"):
                 try:
+                    ebookpath = correct_dirpath(dirpath) + ebook
                     print "Checking if book " + ebook + " is in database"
-                    my_book = Book(correct_dirpath(dirpath)
-                                   + ebook)
+                    my_book = Book(ebookpath)
                     if is_book_in_mongodb(my_book, mycol):
                         continue
-                    print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
-                    my_book = Book(correct_dirpath(dirpath)
-                                   + ebook, samples=10)
+                    if get_size(ebookpath) < 10:
+                        print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
+                        my_book = Book(ebookpath, samples=10)
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__, mycol)
                     if books_analyzed%10 == 0:

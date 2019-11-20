@@ -39,7 +39,6 @@ class MyTest(unittest.TestCase):
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['filepath'].encode('utf-8'))
-                my_book.extract_metadata()
                 self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
                 self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
                 for key in benchmark.keys():
