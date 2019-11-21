@@ -112,12 +112,17 @@ def analyse_directory(argv):
                 try:
                     ebookpath = correct_dirpath(dirpath) + ebook
                     print "Checking if book " + ebook + " is in database"
-                    my_book = Book(ebookpath)
+                    try:
+                        my_book = Book(ebookpath)
+                    except lxml.etree.XMLSyntaxError:
+                        continue
                     if is_book_in_mongodb(my_book, mycol):
                         continue
                     if get_size(ebookpath) < 10:
                         print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
                         my_book = Book(ebookpath, samples=10)
+                    else:
+                        print "Book " + ebook + " too big. Only metadata is read"
                     print "Writing to database"
                     mycol.insert_one(my_book.__dict__, mycol)
                     if books_analyzed%10 == 0:
@@ -557,6 +562,7 @@ def delete_heavy_attributes(self):
    - ntlk: to do natural language processing
 #+NAME: imports
 #+BEGIN_SRC python :session python :results none :exports code
+import lxml
 import unicodedata
 import icu
 import sys
