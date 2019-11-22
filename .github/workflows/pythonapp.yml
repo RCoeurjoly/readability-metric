@@ -26,4 +26,4 @@ jobs:
     - name: Test with pytest
       run: |
         mongo --version
-        make test
+        make test_without_download
