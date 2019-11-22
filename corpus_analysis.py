@@ -19,7 +19,6 @@ from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
 from scipy import log as log
 import numpy as np
-import mysql.connector
 from polyglot.text import Text
 from nltk import FreqDist
 # Constants
@@ -345,12 +344,12 @@ def clean_dots(dictionary):
     del dictionary['.']
 ## Database functions
 ### SQL
-MY_DB = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    passwd="root",
-    charset='utf8'
-)
+#MY_DB = mysql.connector.connect(
+#    host="localhost",
+#    user="root",
+#    passwd="root",
+#    charset='utf8'
+#)
 
 #def insert_book_db(book, db="library"):
 #    '''
@@ -439,91 +438,91 @@ MY_DB = mysql.connector.connect(
 #    mycursor.execute(sql, val)
 #    MY_DB.commit()
 #    print("1 record inserted, ID:", mycursor.lastrowid)
-def create_database(db="library"):
-    '''
-    Create database if it doesn't exists yet.
-    '''
-    mycursor = MY_DB.cursor()
-    mycursor.execute("CREATE DATABASE IF NOT EXISTS " + db + ";")
-    mycursor.execute(
-        "ALTER DATABASE " + db + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-    mycursor.execute("USE " + db + ";")
-    mycursor.execute(
-        """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(255),
-        author VARCHAR(255),
-        slope DECIMAL(10,5),
-        intercept DECIMAL(10,5),
-        std_error_slope DECIMAL(10,5),
-        std_error_intercept DECIMAL(10,5),
-        word_count DECIMAL(20,1),
-        unique_words DECIMAL(20,1),
-        zhslope DECIMAL(10,5),
-        zhintercept DECIMAL(10,5),
-        zhstd_error_slope DECIMAL(10,5),
-        zhstd_error_intercept DECIMAL(10,5),
-        character_count DECIMAL(15,1),
-        unique_characters DECIMAL(15,1),
-        language VARCHAR(255),
-        epub_type VARCHAR(255),
-        subject VARCHAR(255),
-        source VARCHAR(255),
-        rights VARCHAR(255),
-        relation VARCHAR(255),
-        publisher VARCHAR(255),
-        identifier VARCHAR(255),
-        epub_format VARCHAR(255),
-        description VARCHAR(510),
-        contributor VARCHAR(255),
-        date VARCHAR(255)) """)
-    mycursor.execute(
-        "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-    try:
-        mycursor.execute(
-            "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
-    except Exception as ex:
-        print ex
-def is_book_in_db(my_book, db):
-    '''
-    Check if book is in database.
-    '''
-    mycursor = MY_DB.cursor()
-    mycursor.execute("USE " + db + ";")
-    query = ('SELECT * from corpus where title="' + str(my_book.title)
-             + '" and author="' + str(my_book.author) + '"')
-    mycursor.execute(query)
-    mycursor.fetchall()
-    if mycursor.rowcount == 1:
-        print ("Book " + str(my_book.title)
-               + ", by " + str(my_book.author)
-               + " already in database. Next.")
-        return True
-    return False
-def runbackup(hostname,
-              mysql_user,
-              mysql_password,
-              db,
-              db_loc="test/db/library_test.db"):
-    '''
-    Write sql file.
-    '''
-    try:
-        backup = subprocess.Popen("mysqldump -h"
-                                  + hostname + " -u"
-                                  + mysql_user + " -p'"
-                                  + mysql_password + "' --databases "
-                                  + db + " > "
-                                  + db_loc, shell=True)
-        # Wait for completion
-        backup.communicate()
-        if backup.returncode != 0:
-            sys.exit(1)
-        else:
-            print("Backup done for", hostname)
-    except Exception as ex:
-        # Check for errors
-        print ex
-        print("Backup failed for", hostname)
+#def create_database(db="library"):
+#    '''
+#    Create database if it doesn't exists yet.
+#    '''
+#    mycursor = MY_DB.cursor()
+#    mycursor.execute("CREATE DATABASE IF NOT EXISTS " + db + ";")
+#    mycursor.execute(
+#        "ALTER DATABASE " + db + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+#    mycursor.execute("USE " + db + ";")
+#    mycursor.execute(
+#        """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
+#        title VARCHAR(255),
+#        author VARCHAR(255),
+#        slope DECIMAL(10,5),
+#        intercept DECIMAL(10,5),
+#        std_error_slope DECIMAL(10,5),
+#        std_error_intercept DECIMAL(10,5),
+#        word_count DECIMAL(20,1),
+#        unique_words DECIMAL(20,1),
+#        zhslope DECIMAL(10,5),
+#        zhintercept DECIMAL(10,5),
+#        zhstd_error_slope DECIMAL(10,5),
+#        zhstd_error_intercept DECIMAL(10,5),
+#        character_count DECIMAL(15,1),
+#        unique_characters DECIMAL(15,1),
+#        language VARCHAR(255),
+#        epub_type VARCHAR(255),
+#        subject VARCHAR(255),
+#        source VARCHAR(255),
+#        rights VARCHAR(255),
+#        relation VARCHAR(255),
+#        publisher VARCHAR(255),
+#        identifier VARCHAR(255),
+#        epub_format VARCHAR(255),
+#        description VARCHAR(510),
+#        contributor VARCHAR(255),
+#        date VARCHAR(255)) """)
+#    mycursor.execute(
+#        "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+#    try:
+#        mycursor.execute(
+#            "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
+#    except Exception as ex:
+#        print ex
+#def is_book_in_db(my_book, db):
+#    '''
+#    Check if book is in database.
+#    '''
+#    mycursor = MY_DB.cursor()
+#    mycursor.execute("USE " + db + ";")
+#    query = ('SELECT * from corpus where title="' + str(my_book.title)
+#             + '" and author="' + str(my_book.author) + '"')
+#    mycursor.execute(query)
+#    mycursor.fetchall()
+#    if mycursor.rowcount == 1:
+#        print ("Book " + str(my_book.title)
+#               + ", by " + str(my_book.author)
+#               + " already in database. Next.")
+#        return True
+#    return False
+#def runbackup(hostname,
+#              mysql_user,
+#              mysql_password,
+#              db,
+#              db_loc="test/db/library_test.db"):
+#    '''
+#    Write sql file.
+#    '''
+#    try:
+#        backup = subprocess.Popen("mysqldump -h"
+#                                  + hostname + " -u"
+#                                  + mysql_user + " -p'"
+#                                  + mysql_password + "' --databases "
+#                                  + db + " > "
+#                                  + db_loc, shell=True)
+#        # Wait for completion
+#        backup.communicate()
+#        if backup.returncode != 0:
+#            sys.exit(1)
+#        else:
+#            print("Backup done for", hostname)
+#    except Exception as ex:
+#        # Check for errors
+#        print ex
+#        print("Backup failed for", hostname)
 ### MongoDB
 def mongo_connection(database, client="mongodb://localhost:27017/", collection="corpus"):
     myclient = pymongo.MongoClient(client)

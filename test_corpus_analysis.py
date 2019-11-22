@@ -87,7 +87,7 @@ class MyTest(unittest.TestCase):
         '''
         Given a certain book, test sweep
         '''
-        my_book = Book("test/books/hongloumeng.epub", 10)
+        my_book = Book("assets/hongloumeng.epub", 10)
         self.assertEqual(True, True)
 
     @timeout_decorator.timeout(90)
@@ -107,7 +107,7 @@ class MyTest(unittest.TestCase):
         '''
         Write all books to database
         '''
-        my_args = ["whatever", "test/", "library_test"]
+        my_args = ["whatever", "assets/", "library_test"]
         # # Drop database
         myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         mydb = myclient["library_test"]

@@ -5,10 +5,6 @@ EbookLib==0.17.1
 futures==3.3.0
 lxml==4.4.0
 Morfessor==2.0.6
-mysql==0.0.2
-mysql-connector==2.2.9
-MySQL-python==1.2.5
-mysqlclient==1.4.2.post1
 nltk==3.4.5
 numpy==1.16.4
 polyglot==16.7.4
