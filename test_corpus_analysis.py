@@ -6,7 +6,6 @@ import pymongo
 import timeout_decorator
 import unittest
 import json
-import mysql
 from decimal import *
 from ebooklib import epub
 from corpus_analysis import Book, lexical_sweep, linear_func, analyse_directory
