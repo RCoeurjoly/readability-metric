@@ -1,4 +1,5 @@
 *.epub
+!assets/*
 include/
 share/
 lib/
