@@ -14,6 +14,7 @@ import math
 import subprocess
 import ebooklib
 import pymongo
+import re
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
@@ -61,9 +62,9 @@ def lexical_sweep_map(start, stop, step, text):
                                                           step))
 
 def lexical_sweep_list_comprehension(start, stop, step, text):
-     return [[x, len(set(text[0:x]))] for x in xrange(start,
-                                                      stop,
-                                                      step)]
+    return [[x, len(set(text[0:x]))] for x in xrange(start,
+                                                     stop,
+                                                     step)]
 
 def lexical_sweep_for_loop(start, stop, step, text):
     return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
@@ -343,186 +344,6 @@ def clean_dots(dictionary):
     '''
     del dictionary['.']
 ## Database functions
-### SQL
-#MY_DB = mysql.connector.connect(
-#    host="localhost",
-#    user="root",
-#    passwd="root",
-#    charset='utf8'
-#)
-
-#def insert_book_db(book, db="library"):
-#    '''
-#    Insert data into db
-#    '''
-#    mycursor = MY_DB.cursor()
-#    mycursor.execute("use " + db + ";")
-#    sql = """INSERT IGNORE corpus (title,
-#    author,
-#    slope,
-#    intercept,
-#    std_error_slope,
-#    std_error_intercept,
-#    word_count,
-#    unique_words,
-#    zhslope,
-#    zhintercept,
-#    zhstd_error_slope,
-#    zhstd_error_intercept,
-#    character_count,
-#    unique_characters,
-#    language,
-#    epub_type,
-#    subject,
-#    source,
-#    rights,
-#    relation,
-#    publisher,
-#    identifier,
-#    epub_format,
-#    description,
-#    contributor,
-#    date
-#    ) VALUES (%s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s,
-#    %s)"""
-#    val = (book.title,
-#           book.author,
-#           book.fitword_curve_fit['slope']),
-#           float(word_curve_fit['intercept']),
-#           float(word_curve_fit['std_error_slope']),
-#           float(word_curve_fit['std_error_intercept']),
-#           float(book.word_count),
-#           float(book.unique_words),
-#           float(zh_character_curve_fit['slope']),
-#           float(zh_character_curve_fit['intercept']),
-#           float(zh_character_curve_fit['std_error_slope']),
-#           float(zh_character_curve_fit['std_error_intercept']),
-#           float(book.character_count),
-#           float(book.unique_characters),
-#           book.language,
-#           book.epub_type,
-#           book.subject,
-#           book.source,
-#           book.rights,
-#           book.relation,
-#           book.publisher,
-#           book.identifier,
-#           book.epub_format,
-#           book.description,
-#           book.contributor,
-#           book.date)
-#    mycursor.execute(sql, val)
-#    MY_DB.commit()
-#    print("1 record inserted, ID:", mycursor.lastrowid)
-#def create_database(db="library"):
-#    '''
-#    Create database if it doesn't exists yet.
-#    '''
-#    mycursor = MY_DB.cursor()
-#    mycursor.execute("CREATE DATABASE IF NOT EXISTS " + db + ";")
-#    mycursor.execute(
-#        "ALTER DATABASE " + db + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-#    mycursor.execute("USE " + db + ";")
-#    mycursor.execute(
-#        """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
-#        title VARCHAR(255),
-#        author VARCHAR(255),
-#        slope DECIMAL(10,5),
-#        intercept DECIMAL(10,5),
-#        std_error_slope DECIMAL(10,5),
-#        std_error_intercept DECIMAL(10,5),
-#        word_count DECIMAL(20,1),
-#        unique_words DECIMAL(20,1),
-#        zhslope DECIMAL(10,5),
-#        zhintercept DECIMAL(10,5),
-#        zhstd_error_slope DECIMAL(10,5),
-#        zhstd_error_intercept DECIMAL(10,5),
-#        character_count DECIMAL(15,1),
-#        unique_characters DECIMAL(15,1),
-#        language VARCHAR(255),
-#        epub_type VARCHAR(255),
-#        subject VARCHAR(255),
-#        source VARCHAR(255),
-#        rights VARCHAR(255),
-#        relation VARCHAR(255),
-#        publisher VARCHAR(255),
-#        identifier VARCHAR(255),
-#        epub_format VARCHAR(255),
-#        description VARCHAR(510),
-#        contributor VARCHAR(255),
-#        date VARCHAR(255)) """)
-#    mycursor.execute(
-#        "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-#    try:
-#        mycursor.execute(
-#            "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
-#    except Exception as ex:
-#        print ex
-#def is_book_in_db(my_book, db):
-#    '''
-#    Check if book is in database.
-#    '''
-#    mycursor = MY_DB.cursor()
-#    mycursor.execute("USE " + db + ";")
-#    query = ('SELECT * from corpus where title="' + str(my_book.title)
-#             + '" and author="' + str(my_book.author) + '"')
-#    mycursor.execute(query)
-#    mycursor.fetchall()
-#    if mycursor.rowcount == 1:
-#        print ("Book " + str(my_book.title)
-#               + ", by " + str(my_book.author)
-#               + " already in database. Next.")
-#        return True
-#    return False
-#def runbackup(hostname,
-#              mysql_user,
-#              mysql_password,
-#              db,
-#              db_loc="test/db/library_test.db"):
-#    '''
-#    Write sql file.
-#    '''
-#    try:
-#        backup = subprocess.Popen("mysqldump -h"
-#                                  + hostname + " -u"
-#                                  + mysql_user + " -p'"
-#                                  + mysql_password + "' --databases "
-#                                  + db + " > "
-#                                  + db_loc, shell=True)
-#        # Wait for completion
-#        backup.communicate()
-#        if backup.returncode != 0:
-#            sys.exit(1)
-#        else:
-#            print("Backup done for", hostname)
-#    except Exception as ex:
-#        # Check for errors
-#        print ex
-#        print("Backup failed for", hostname)
 ### MongoDB
 def mongo_connection(database, client="mongodb://localhost:27017/", collection="corpus"):
     myclient = pymongo.MongoClient(client)
@@ -566,11 +387,39 @@ def correct_dirpath(dirpath):
 
 def get_size(filepath, unit='M'):
     if unit == 'K':
-        return (os.path.getsize(filepath) >> 10)
+        return os.path.getsize(filepath) >> 10
     if unit == 'M':
-        return (os.path.getsize(filepath) >> 20)
+        return os.path.getsize(filepath) >> 20
     if unit == 'G':
-        return (os.path.getsize(filepath) >> 30)
+        return os.path.getsize(filepath) >> 30
+
+def analyse_file(ebookpath, my_col):
+    """
+    Analyse single book
+    """
+    if ebookpath.endswith(".epub"):
+        try:
+            ebook = re.search(r'.*(/.*$)', ebookpath).group(1)
+            print "Checking if book " + ebook + " is in database"
+            my_book = Book(ebookpath)
+            if is_book_in_mongodb(my_book, my_col):
+                return False
+            if get_size(ebookpath) < 10:
+                print "Reading ebook " + ebook
+                my_book = Book(ebookpath, samples=10)
+            else:
+                print "Book " + ebook + " too big. Only metadata is read"
+            print "Writing to database"
+            my_col.insert_one(my_book.__dict__, my_col)
+            return True
+        except (KeyError,
+                TypeError,
+                lxml.etree.XMLSyntaxError,
+                ebooklib.epub.EpubException) as ex:
+            print ex
+            return False
+        print "Only epubs can be analysed"
+        return False
 
 def analyse_directory(argv):
     '''
@@ -580,38 +429,29 @@ def analyse_directory(argv):
     '''
     corpus_path = str(argv[1])
     db = str(argv[2])
-    books_analyzed = 0
-    myclient, __, mycol = mongo_connection(db)
+    books_analyzed = 1
+    my_client, __, my_col = mongo_connection(db)
     for dirpath, __, files in os.walk(corpus_path):
         for ebook in files:
-            if ebook.endswith(".epub"):
-                try:
-                    ebookpath = correct_dirpath(dirpath) + ebook
-                    print "Checking if book " + ebook + " is in database"
-                    try:
-                        my_book = Book(ebookpath)
-                    except lxml.etree.XMLSyntaxError:
-                        continue
-                    if is_book_in_mongodb(my_book, mycol):
-                        continue
-                    if get_size(ebookpath) < 10:
-                        print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
-                        my_book = Book(ebookpath, samples=10)
-                    else:
-                        print "Book " + ebook + " too big. Only metadata is read"
-                    print "Writing to database"
-                    mycol.insert_one(my_book.__dict__, mycol)
-                    if books_analyzed%10 == 0:
-                        print "Performing backup"
-                        backup_mongo(db)
-                    books_analyzed += 1
-                except (KeyError, TypeError) as ex:
-                    print ex
-                    continue
+            result = analyse_file(correct_dirpath(dirpath) + ebook, my_col)
+            if result:
+                print "Books analysed: " + str(books_analyzed + 1)
+                books_analyzed += 1
+            if books_analyzed%25 == 0:
+                print "Performing backup"
+                backup_mongo(db)
     print "Performing final backup"
     backup_mongo(db)
     print "Closing db"
-    myclient.close()
+    my_client.close()
+
+def main(argv):
+    if str(argv[1]).endswith(".epub"):
+        db = str(argv[2])
+        __, __, my_col = mongo_connection(db)
+        return analyse_file(str(argv[1]), my_col)
+    else:
+        analyse_directory(argv)
 
 if __name__ == '__main__':
-    analyse_directory(sys.argv)
+    main(sys.argv)

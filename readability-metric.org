@@ -90,11 +90,39 @@ def correct_dirpath(dirpath):
 
 def get_size(filepath, unit='M'):
     if unit == 'K':
-        return (os.path.getsize(filepath) >> 10)
+        return os.path.getsize(filepath) >> 10
     if unit == 'M':
-        return (os.path.getsize(filepath) >> 20)
+        return os.path.getsize(filepath) >> 20
     if unit == 'G':
-        return (os.path.getsize(filepath) >> 30)
+        return os.path.getsize(filepath) >> 30
+
+def analyse_file(ebookpath, my_col):
+    """
+    Analyse single book
+    """
+    if ebookpath.endswith(".epub"):
+        try:
+            ebook = re.search(r'.*(/.*$)', ebookpath).group(1)
+            print "Checking if book " + ebook + " is in database"
+            my_book = Book(ebookpath)
+            if is_book_in_mongodb(my_book, my_col):
+                return False
+            if get_size(ebookpath) < 10:
+                print "Reading ebook " + ebook
+                my_book = Book(ebookpath, samples=10)
+            else:
+                print "Book " + ebook + " too big. Only metadata is read"
+            print "Writing to database"
+            my_col.insert_one(my_book.__dict__, my_col)
+            return True
+        except (KeyError,
+                TypeError,
+                lxml.etree.XMLSyntaxError,
+                ebooklib.epub.EpubException) as ex:
+            print ex
+            return False
+        print "Only epubs can be analysed"
+        return False
 
 def analyse_directory(argv):
     '''
@@ -104,41 +132,32 @@ def analyse_directory(argv):
     '''
     corpus_path = str(argv[1])
     db = str(argv[2])
-    books_analyzed = 0
-    myclient, __, mycol = mongo_connection(db)
+    books_analyzed = 1
+    my_client, __, my_col = mongo_connection(db)
     for dirpath, __, files in os.walk(corpus_path):
         for ebook in files:
-            if ebook.endswith(".epub"):
-                try:
-                    ebookpath = correct_dirpath(dirpath) + ebook
-                    print "Checking if book " + ebook + " is in database"
-                    try:
-                        my_book = Book(ebookpath)
-                    except lxml.etree.XMLSyntaxError:
-                        continue
-                    if is_book_in_mongodb(my_book, mycol):
-                        continue
-                    if get_size(ebookpath) < 10:
-                        print "Reading ebook " + ebook + ", number  " + str(books_analyzed + 1)
-                        my_book = Book(ebookpath, samples=10)
-                    else:
-                        print "Book " + ebook + " too big. Only metadata is read"
-                    print "Writing to database"
-                    mycol.insert_one(my_book.__dict__, mycol)
-                    if books_analyzed%10 == 0:
-                        print "Performing backup"
-                        backup_mongo(db)
-                    books_analyzed += 1
-                except (KeyError, TypeError) as ex:
-                    print ex
-                    continue
+            result = analyse_file(correct_dirpath(dirpath) + ebook, my_col)
+            if result:
+                print "Books analysed: " + str(books_analyzed + 1)
+                books_analyzed += 1
+            if books_analyzed%25 == 0:
+                print "Performing backup"
+                backup_mongo(db)
     print "Performing final backup"
     backup_mongo(db)
     print "Closing db"
-    myclient.close()
+    my_client.close()
+
+def main(argv):
+    if str(argv[1]).endswith(".epub"):
+        db = str(argv[2])
+        __, __, my_col = mongo_connection(db)
+        return analyse_file(str(argv[1]), my_col)
+    else:
+        analyse_directory(argv)
 
 if __name__ == '__main__':
-    analyse_directory(sys.argv)
+    main(sys.argv)
  #+END_SRC
 
  #+RESULTS: main
@@ -155,9 +174,9 @@ def lexical_sweep_map(start, stop, step, text):
                                                           step))
 
 def lexical_sweep_list_comprehension(start, stop, step, text):
-     return [[x, len(set(text[0:x]))] for x in xrange(start,
-                                                      stop,
-                                                      step)]
+    return [[x, len(set(text[0:x]))] for x in xrange(start,
+                                                     stop,
+                                                     step)]
 
 def lexical_sweep_for_loop(start, stop, step, text):
     return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
@@ -571,6 +590,7 @@ import math
 import subprocess
 import ebooklib
 import pymongo
+import re
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
@@ -611,13 +631,6 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 <<utf8-cleaning>>
 <<dot-cleaning>>
 ## Database functions
-### SQL
-#<<db-connection>>
-<<mongodb-connection>>
-#<<database-insertion>>
-#<<database-creation>>
-#<<is-book-in-db>>
-#<<db-backup>>
 ### MongoDB
 <<mongodb_connection>>
 <<insert_book_mongo>>
@@ -920,7 +933,7 @@ def insert_book_db(book, db="library"):
     %s,
     %s,
     %s)"""
-    val = (book.title,
+    val = ((book.title,
            book.author,
            book.fitword_curve_fit['slope']),
            float(word_curve_fit['intercept']),
