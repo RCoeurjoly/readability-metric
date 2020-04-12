@@ -88,6 +88,7 @@ def correct_dirpath(dirpath):
         return dirpath
     return dirpath + '/'
 
+
 def get_size(filepath, unit='M'):
     if unit == 'K':
         return os.path.getsize(filepath) >> 10
@@ -96,6 +97,7 @@ def get_size(filepath, unit='M'):
     if unit == 'G':
         return os.path.getsize(filepath) >> 30
 
+
 def analyse_file(ebookpath, my_col):
     """
     Analyse single book
@@ -103,26 +105,27 @@ def analyse_file(ebookpath, my_col):
     if ebookpath.endswith(".epub"):
         try:
             ebook = re.search(r'.*(/.*$)', ebookpath).group(1)
-            print "Checking if book " + ebook + " is in database"
+            print("Checking if book " + ebook + " is in database")
             my_book = Book(ebookpath)
             if is_book_in_mongodb(my_book, my_col):
                 return False
             if get_size(ebookpath) < 10:
-                print "Reading ebook " + ebook
+                print("Reading ebook " + ebook)
                 my_book = Book(ebookpath, samples=10)
             else:
-                print "Book " + ebook + " too big. Only metadata is read"
-            print "Writing to database"
+                print("Book " + ebook + " too big. Only metadata is read")
+            print("Writing to database")
             my_col.insert_one(my_book.__dict__, my_col)
             return True
         except (KeyError,
                 TypeError,
                 lxml.etree.XMLSyntaxError,
                 ebooklib.epub.EpubException) as ex:
-            print ex
+            print(ex)
             return False
-        print "Only epubs can be analysed"
+        print("Only epubs can be analysed")
         return False
+
 
 def analyse_directory(argv):
     '''
@@ -138,15 +141,16 @@ def analyse_directory(argv):
         for ebook in files:
             result = analyse_file(correct_dirpath(dirpath) + ebook, my_col)
             if result:
-                print "Books analysed: " + str(books_analyzed + 1)
+                print("Books analysed: " + str(books_analyzed + 1))
                 books_analyzed += 1
-            if books_analyzed%25 == 0:
-                print "Performing backup"
+            if books_analyzed % 25 == 0:
+                print("Performing backup")
                 backup_mongo(db)
-    print "Performing final backup"
+    print("Performing final backup")
     backup_mongo(db)
-    print "Closing db"
+    print("Closing db")
     my_client.close()
+
 
 def main(argv):
     if str(argv[1]).endswith(".epub"):
@@ -155,6 +159,7 @@ def main(argv):
         return analyse_file(str(argv[1]), my_col)
     else:
         analyse_directory(argv)
+
 
 if __name__ == '__main__':
     main(sys.argv)
@@ -169,19 +174,22 @@ if __name__ == '__main__':
 #+NAME: lexical-sweep
 #+BEGIN_SRC python :noweb yes :session python :exports code
 def lexical_sweep_map(start, stop, step, text):
-    return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
-                                                          stop,
-                                                          step))
+    return list(map(lambda x: [x, len(set(text[0:x]))], range(int(start),
+                                                         int(stop),
+                                                         int(step))))
+
 
 def lexical_sweep_list_comprehension(start, stop, step, text):
-    return [[x, len(set(text[0:x]))] for x in xrange(start,
-                                                     stop,
-                                                     step)]
+    return [[x, len(set(text[0:x]))] for x in range(int(start),
+                                                    int(stop),
+                                                    int(step))]
+
 
 def lexical_sweep_for_loop(start, stop, step, text):
-    return map(lambda x: [x, len(set(text[0:x]))], xrange(start,
-                                                          stop,
-                                                          step))
+    return list(map(lambda x: [x, len(set(text[0:x]))], range(int(start),
+                                                         int(stop),
+                                                         int(step))))
+
 
 def lexical_sweep(text, slicing_function=lexical_sweep_map, samples=10):
     '''
@@ -200,7 +208,7 @@ def lexical_sweep(text, slicing_function=lexical_sweep_map, samples=10):
             return sweep_values
         return False
     except AttributeError as ex:
-        print ex
+        print(ex)
         return False
      #+END_SRC
 
@@ -236,6 +244,9 @@ def extract_fit_parameters(self, analysis_type, sweep_values):
         perr = np.sqrt(np.diag(pcov))
         std_error_slope = perr[0]
         std_error_intercept = perr[1]
+        #print("My sweep values:")
+        #for i in sweep_values:
+        #    print (str(i) + ", " + str(sweep_values[i]))
         self.fit.append({'type': analysis_type,
                          'samples': len(sweep_values),
                          'intercept': intercept,
@@ -255,11 +266,13 @@ def linear_func(variable, slope, y_intercept):
     '''
     return slope*variable + y_intercept
 
+
 def log_func(variable, coefficient, x_intercept):
     '''
     Logarithmic model.
     '''
     return coefficient*log(variable) + x_intercept
+
 
 def log_log_func(variable, coefficient, intercept):
     '''
@@ -282,18 +295,20 @@ class Book(object):
     '''
     Book class
     '''
-    # pylint: disable=too-many-instance-attributes
-    # There is a lot of metadata but it is repetitive and non problematic.
     <<constructor>>
+
     <<metadata>>
+
     <<tokenization>>
+
     <<freq-dist>>
+
     <<text-extraction>>
+
     <<language-detection>>
-    <<release-text>>
-    <<release-zh-characters>>
-    <<release-tokens>>
+
     <<curve-fit>>
+
     <<delete>>
     #+end_src
 
@@ -308,24 +323,24 @@ def __init__(self, epub_filename, slicing_function=lexical_sweep_map, samples=0)
     # pylint: disable=too-many-statements
     # There is a lot of metadata but it is repetitive and non problematic.
     try:
-        print "Extracting metadata"
+        print("Extracting metadata")
         self.extract_metadata(epub_filename)
         if samples:
-            print "Extracting text"
+            print("Extracting text")
             self.extract_text()
-            print "Detecting language"
+            print("Detecting language")
             self.detect_language()
-            print "Tokenization"
+            print("Tokenization")
             self.tokenize()
-            print "Calculating word sweep values"
+            print("Calculating word sweep values")
             sweep_values = lexical_sweep(self.tokens, slicing_function, samples)
             self.fit = []
-            print "Word fit"
+            print("Word fit")
             self.extract_fit_parameters("words", sweep_values)
             if self.language == "zh" or self.language == "zh_Hant":
-                print "Calculating character sweep values"
+                print("Calculating character sweep values")
                 sweep_values = lexical_sweep(self.zh_characters, slicing_function, samples)
-                print "Character fit"
+                print("Character fit")
                 self.extract_fit_parameters("characters", sweep_values)
             self.delete_heavy_attributes()
     except AttributeError:
@@ -338,70 +353,37 @@ def extract_metadata(self, epub_filename):
     '''
     Extraction of metadata
     '''
-    # pylint: disable=too-many-statements
-    # There is a lot of metadata but it is repetitive and non problematic.
     self.filepath = epub_filename
     epub_file = epub.read_epub(self.filepath)
-    try:
-        self.author = epub_file.get_metadata('DC', 'creator')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.title = epub_file.get_metadata('DC', 'title')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.epub_type = epub_file.get_metadata('DC', 'type')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.subject = epub_file.get_metadata('DC', 'subject')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.source = epub_file.get_metadata('DC', 'source')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.rights = epub_file.get_metadata('DC', 'rights')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.relation = epub_file.get_metadata('DC', 'relation')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.publisher = epub_file.get_metadata('DC', 'publisher')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    #try:
-    #    self.language = epub_file.get_metadata('DC', 'language')[0][0].encode('utf-8')
-    #except (IndexError, AttributeError):
-    #    pass
-    try:
-        self.identifier = epub_file.get_metadata('DC', 'identifier')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.epub_format = epub_file.get_metadata('DC', 'format')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.description = epub_file.get_metadata('DC', 'description')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.coverage = epub_file.get_metadata('DC', 'coverage')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.contributor = epub_file.get_metadata('DC', 'contributor')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
-    try:
-        self.date = epub_file.get_metadata('DC', 'date')[0][0].encode('utf-8')
-    except (IndexError, AttributeError):
-        pass
+    metadata_fields = ['creator',
+                       'title',
+                       'subject',
+                       'source',
+                       'rights',
+                       'relation',
+                       'publisher',
+                       'identifier',
+                       'description',
+                       'coverage',
+                       'contributor',
+                       'date']
+    for metadata_field in metadata_fields:
+        try:
+            setattr(self,
+                    metadata_field,
+                    epub_file.get_metadata('DC', metadata_field)[0][0])
+        except (IndexError, AttributeError):
+            pass
+    metadata_to_attribute = [['original_language', 'language'],
+                             ['epub_type', 'type'],
+                             ['epub_format', 'format']]
+    for attribute, metadata_field in metadata_to_attribute:
+        try:
+            setattr(self,
+                    attribute,
+                    epub_file.get_metadata('DC', metadata_field)[0][0])
+        except (IndexError, AttributeError):
+            pass
 #+end_src
 
 *** Extracting text from ebook
@@ -435,7 +417,7 @@ html_filtered += BeautifulSoup(raw_html, "lxml").text
 #+NAME: printable-set
 #+BEGIN_SRC python :noweb yes :session python :exports code
 PRINTABLE = {
-    #'Cc',
+    # 'Cc',
     'Cf',
     'Cn',
     'Co',
@@ -515,11 +497,10 @@ def tokenize(self):
             self.character_count = len(self.zh_characters)
             self.unique_characters = len(set(self.zh_characters))
         self.tokens = Text(self.text).words
-        #self.tokens.remove('.')
         self.word_count = len(self.tokens)
         self.unique_words = len(set(self.tokens))
     except ValueError as ex:
-        print ex
+        print(ex)
         self.tokens = []
 #+END_SRC
 *** Frequency distributions
@@ -536,31 +517,16 @@ def get_freq_dist(self):
         try:
             del self.zh_char_freq_dist['.']
         except KeyError as ex:
-            print ex
+            print(ex)
     self.freq_dist = dict(FreqDist(self.tokens))
     try:
         del self.freq_dist['.']
     except KeyError as ex:
-        print ex
+        print(ex)
 #+END_SRC
 *** Delete
 #+NAME: delete
 #+BEGIN_SRC python :noweb yes :session python :exports code
-def release_text(self):
-    '''
-    Release text.
-    '''
-    self.text = str()
-def release_zh_characters(self):
-    '''
-    Release Chinese characters.
-    '''
-    self.zh_characters = str()
-def release_tokens(self):
-    '''
-    Release tokens.
-    '''
-    self.tokens = str()
 def delete_heavy_attributes(self):
     '''
     Delete heavy attributes.
@@ -581,21 +547,20 @@ def delete_heavy_attributes(self):
    - ntlk: to do natural language processing
 #+NAME: imports
 #+BEGIN_SRC python :session python :results none :exports code
-import lxml
 import unicodedata
-import icu
 import sys
 import os
 import math
 import subprocess
+import re
+import lxml
 import ebooklib
 import pymongo
-import re
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
-from scipy import log as log
 import numpy as np
+from numpy.lib.scimath import log as log
 from polyglot.text import Text
 from nltk import FreqDist
 #+END_SRC
@@ -621,22 +586,42 @@ Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 <<imports>>
 # Constants
 <<printable-set>>
-## Curve fitting functions
+# Curve fitting functions
+
+
 <<lexical-sweep>>
+
+
 <<fit-functions>>
 # Classes
-## Book Class
+# Book Class
+
+
 <<book-class>>
 # Functions
+
+
 <<utf8-cleaning>>
+
+
 <<dot-cleaning>>
-## Database functions
-### MongoDB
+# Database functions
+# MongoDB
+
+
 <<mongodb_connection>>
+
+
 <<insert_book_mongo>>
+
+
 <<check_book_mongo>>
+
+
 <<backup_mongo>>
 # Main function
+
+
 <<main>>
 #+END_SRC
 
@@ -686,10 +671,9 @@ print margin_unknowable_list
 Unit testing for the corpus analysis
 '''
 import pymongo
-import timeout_decorator
 import unittest
 import json
-from decimal import *
+# from decimal import *
 from ebooklib import epub
 from corpus_analysis import Book, lexical_sweep, linear_func, analyse_directory
 
@@ -699,7 +683,6 @@ class MyTest(unittest.TestCase):
     '''
     maxDiff = None
 
-    @timeout_decorator.timeout(1)
     def test_metadata(self):
         '''
         Given a certain book, test metadata
@@ -720,16 +703,15 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'].encode('utf-8'))
-                self.assertEqual(my_book.author, benchmark['author'].encode('utf-8'))
-                self.assertEqual(my_book.title, benchmark['title'].encode('utf-8'))
+                my_book = Book(benchmark['filepath'])
+                self.assertEqual(my_book.creator, benchmark['creator'])
+                self.assertEqual(my_book.title, benchmark['title'])
                 for key in benchmark.keys():
                     if key in metadata:
                         attr = getattr(my_book, key)
-                        self.assertEqual(attr, benchmark[key].encode('utf-8'))
-                print "Metadata for " + benchmark['title'].encode('utf-8') + " OK"
+                        self.assertEqual(attr, benchmark[key])
+                print("Metadata for " + benchmark['title'] + " OK")
 
-    @timeout_decorator.timeout(7)
     def test_language(self):
         '''
         Given a certain book, test language
@@ -737,12 +719,11 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'].encode('utf-8'))
+                my_book = Book(benchmark['filepath'])
                 my_book.detect_language()
-                self.assertEqual(my_book.language, benchmark['language'].encode('utf-8'))
-                print "Language for " + benchmark['title'].encode('utf-8') + " OK"
+                self.assertEqual(my_book.language, benchmark['language'])
+                print("Language for " + benchmark['title'] + " OK")
 
-    @timeout_decorator.timeout(24)
     def test_tokens(self):
         '''
         Given a certain book, test tokens
@@ -755,24 +736,15 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'].encode('utf-8'))
+                my_book = Book(benchmark['filepath'])
                 my_book.detect_language()
                 my_book.tokenize()
                 for key in benchmark.keys():
                     if key in tokens:
                         attr = getattr(my_book, key)
                         self.assertEqual(attr, benchmark[key])
-                print "Tokens for " + benchmark['title'].encode('utf-8') + " OK"
+                print("Tokens for " + benchmark['title'] + " OK")
 
-    @timeout_decorator.timeout(50)
-    def test_sweep(self):
-        '''
-        Given a certain book, test sweep
-        '''
-        my_book = Book("assets/hongloumeng.epub", 10)
-        self.assertEqual(True, True)
-
-    @timeout_decorator.timeout(90)
     def test_fit(self):
         '''
         Given a certain book, test fit
@@ -780,17 +752,16 @@ class MyTest(unittest.TestCase):
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'].encode('utf-8'), samples=10)
+                my_book = Book(benchmark['filepath'], samples=10)
                 self.assertEqual(my_book.fit, benchmark['fit'])
-                print "Fit for " + benchmark['title'].encode('utf-8') + " OK"
+                print("Fit for " + benchmark['title'] + " OK")
 
-    @timeout_decorator.timeout(90)
     def test_db_writing(self):
         '''
         Write all books to database
         '''
         my_args = ["whatever", "assets/", "library_test"]
-        # # Drop database
+        # Drop database
         myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         mydb = myclient["library_test"]
         mycol = mydb["corpus"]
@@ -802,7 +773,7 @@ class MyTest(unittest.TestCase):
                 for result in mycol.find({}, {"_id":False}):
                     if benchmark['title'] == result['title']:
                         self.assertEqual(result, benchmark)
-                        print "Database write for " + benchmark['title'].encode('utf-8') + " OK"
+                        print("Database write for " + benchmark['title'] + " OK")
 
 if __name__ == '__main__':
     unittest.main(failfast=True)
@@ -882,7 +853,7 @@ def insert_book_db(book, db="library"):
     mycursor = MY_DB.cursor()
     mycursor.execute("use " + db + ";")
     sql = """INSERT IGNORE corpus (title,
-    author,
+    creator,
     slope,
     intercept,
     std_error_slope,
@@ -934,7 +905,7 @@ def insert_book_db(book, db="library"):
     %s,
     %s)"""
     val = ((book.title,
-           book.author,
+           book.creator,
            book.fitword_curve_fit['slope']),
            float(word_curve_fit['intercept']),
            float(word_curve_fit['std_error_slope']),
@@ -979,7 +950,7 @@ def create_database(db="library"):
     mycursor.execute(
         """ CREATE TABLE IF NOT EXISTS corpus (id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255),
-        author VARCHAR(255),
+        creator VARCHAR(255),
         slope DECIMAL(10,5),
         intercept DECIMAL(10,5),
         std_error_slope DECIMAL(10,5),
@@ -1008,9 +979,9 @@ def create_database(db="library"):
         "ALTER TABLE corpus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
     try:
         mycursor.execute(
-            "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,author);")
+            "ALTER TABLE corpus ADD CONSTRAINT unique_book UNIQUE (title,creator);")
     except Exception as ex:
-        print ex
+        print(ex)
 #+end_src
 ** Check
 #+NAME: is-book-in-db
@@ -1022,12 +993,12 @@ def is_book_in_db(my_book, db):
     mycursor = MY_DB.cursor()
     mycursor.execute("USE " + db + ";")
     query = ('SELECT * from corpus where title="' + str(my_book.title)
-             + '" and author="' + str(my_book.author) + '"')
+             + '" and creator="' + str(my_book.creator) + '"')
     mycursor.execute(query)
     mycursor.fetchall()
     if mycursor.rowcount == 1:
         print ("Book " + str(my_book.title)
-               + ", by " + str(my_book.author)
+               + ", by " + str(my_book.creator)
                + " already in database. Next.")
         return True
     return False
@@ -1064,7 +1035,7 @@ def runbackup(hostname,
             print("Backup done for", hostname)
     except Exception as ex:
         # Check for errors
-        print ex
+        print(ex)
         print("Backup failed for", hostname)
 #+end_src
 * Arguelles Analysis
@@ -1223,7 +1194,7 @@ def insert_book_mongo(book, collection):
 #+begin_src python :noweb yes :session python :exports code
 def is_book_in_mongodb(book, collection):
     try:
-        myquery = { "author": book.author, "title": book.title}
+        myquery = {"creator": book.creator, "title": book.title}
         mydoc = collection.find_one(myquery)
         if mydoc:
             return True
@@ -1240,9 +1211,9 @@ myclient = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = myclient["library"]
 mycol = mydb["corpus"]
 
-myquery = { "author": "Carl Collodi", "title": "The Adventures of Pinocchio"}
+myquery = { "creator": "Carl Collodi", "title": "The Adventures of Pinocchio"}
 
-mydoc = mycol.find_one(myquery, {"author":True, "title":True, "_id":False})
+mydoc = mycol.find_one(myquery, {"creator":True, "title":True, "_id":False})
 if mydoc:
     print "Found"
 else:
@@ -1262,7 +1233,7 @@ def backup_mongo(db):
     Write mongo file as json.
     '''
     try:
-        print db
+        print(db)
         backup = subprocess.Popen(["mongodump", "--host", "localhost", "--db",
                                    db])
         # Wait for completion
@@ -1270,11 +1241,11 @@ def backup_mongo(db):
         if backup.returncode != 0:
             sys.exit(1)
         else:
-            print "Backup done for " + db
+            print("Backup done for " + db)
     except OSError as ex:
         # Check for errors
-        print ex
-        print "Backup failed for " + db
+        print(ex)
+        print("Backup failed for " + db)
 #+end_src
 
 #+RESULTS: backup_mongo
@@ -1499,10 +1470,10 @@ import json
 with open("benchmarks.json", "r") as test_cases:
     benchmarks = json.load(test_cases)
     for benchmark in benchmarks['books']:
-        print benchmark['filepath'].encode('utf-8')
-        print benchmark['author'].encode('utf-8')
-        print benchmark['title'].encode('utf-8')
-        print benchmark['epub_type'].encode('utf-8')
+        print benchmark['filepath']
+        print benchmark['creator']
+        print benchmark['title']
+        print benchmark['epub_type']
         print benchmark['word_curve_fit_slope']
         print benchmark['zh_character_curve_fit_slope']
         print benchmark['word_count']

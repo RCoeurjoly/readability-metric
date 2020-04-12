@@ -1,12 +1,12 @@
 {
   "books": [
     {
-      "author": "Miguel de Cervantes Saavedra", 
+      "original_language": "es", 
+      "filepath": "assets/Quijote.epub", 
       "language": "es", 
       "rights": "Public domain in the USA.", 
       "title": "Don Quijote", 
       "word_count": 449755, 
-      "filepath": "assets/Quijote.epub", 
       "source": "https://www.gutenberg.org/files/2000/2000-h/2000-h.htm", 
       "unique_words": 27284, 
       "date": "1999-12-01", 
@@ -21,15 +21,16 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/2000", 
+      "creator": "Miguel de Cervantes Saavedra", 
       "subject": "Spain -- Social life and customs -- 16th century -- Fiction"
     }, 
     {
-      "author": "Daniel Defoe", 
+      "original_language": "en", 
+      "filepath": "assets/crusoe.epub", 
       "language": "en", 
       "rights": "Public domain in the USA.", 
       "title": "The Life and Adventures of Robinson Crusoe", 
       "word_count": 141776, 
-      "filepath": "assets/crusoe.epub", 
       "source": "https://www.gutenberg.org/files/521/521-h/521-h.htm", 
       "unique_words": 7643, 
       "date": "1996-05-01", 
@@ -44,15 +45,16 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/521", 
+      "creator": "Daniel Defoe", 
       "subject": "Shipwreck survival -- Fiction"
     }, 
     {
-      "author": "Johann Wolfgang von Goethe", 
+      "original_language": "de", 
+      "filepath": "assets/faust.epub", 
       "language": "de", 
       "rights": "Public domain in the USA.", 
       "title": "Faust: Eine Trag\u00f6die [erster Teil]", 
       "word_count": 36751, 
-      "filepath": "assets/faust.epub", 
       "source": "https://www.gutenberg.org/files/21000/21000-h/21000-h.htm", 
       "unique_words": 9293, 
       "date": "2007-04-06", 
@@ -67,16 +69,17 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/21000", 
+      "creator": "Johann Wolfgang von Goethe", 
       "subject": "German poetry"
     }, 
     {
-      "author": "Xueqin Cao", 
+      "original_language": "zh", 
+      "filepath": "assets/hongloumeng.epub", 
       "language": "zh_Hant", 
       "rights": "Public domain in the USA.", 
       "title": "\u7d05\u6a13\u5922", 
       "unique_words": 21113, 
       "word_count": 662992, 
-      "filepath": "assets/hongloumeng.epub", 
       "source": "https://www.gutenberg.org/files/24264/24264-0.txt", 
       "unique_characters": 4263, 
       "date": "2008-01-12", 
@@ -100,15 +103,16 @@
       ], 
       "character_count": 724567, 
       "identifier": "http://www.gutenberg.org/24264", 
+      "creator": "Xueqin Cao", 
       "subject": "China -- History -- Qing dynasty, 1644-1912 -- Fiction"
     }, 
     {
-      "author": "Charles Baudelaire", 
+      "original_language": "fr", 
+      "filepath": "assets/lesfleursdumal.epub", 
       "language": "fr", 
       "rights": "Public domain in the USA.", 
       "title": "Les Fleurs du Mal", 
       "word_count": 31525, 
-      "filepath": "assets/lesfleursdumal.epub", 
       "source": "https://www.gutenberg.org/files/6099/6099-h/6099-h.htm", 
       "unique_words": 8177, 
       "date": "2004-07-01", 
@@ -123,15 +127,16 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/6099", 
+      "creator": "Charles Baudelaire", 
       "subject": "French poetry -- 19th century"
     }, 
     {
-      "author": "Ren\u00e9 Descartes", 
+      "original_language": "la", 
+      "filepath": "assets/meditationes.epub", 
       "language": "la", 
       "rights": "Public domain in the USA.", 
       "title": "Meditationes de prima philosophia", 
       "word_count": 28207, 
-      "filepath": "assets/meditationes.epub", 
       "source": "https://www.gutenberg.org/files/23306/23306-h/23306-h.htm", 
       "unique_words": 6085, 
       "date": "2007-11-03", 
@@ -146,15 +151,16 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/23306", 
+      "creator": "Ren\u00e9 Descartes", 
       "subject": "First philosophy"
     }, 
     {
-      "author": "Herman Melville", 
+      "original_language": "en", 
+      "filepath": "assets/moby.epub", 
       "language": "en", 
       "rights": "Public domain in the USA.", 
       "title": "Moby Dick; Or, The Whale", 
       "word_count": 260447, 
-      "filepath": "assets/moby.epub", 
       "source": "https://www.gutenberg.org/files/2701/2701-h/2701-h.htm", 
       "unique_words": 20825, 
       "date": "2001-07-01", 
@@ -169,16 +175,17 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/2701", 
+      "creator": "Herman Melville", 
       "subject": "Whaling -- Fiction"
     }, 
     {
+      "original_language": "en", 
       "date": "2006-01-12", 
-      "author": "Carlo Collodi", 
+      "filepath": "assets/pinocchio.epub", 
       "language": "en", 
       "rights": "Public domain in the USA.", 
       "title": "The Adventures of Pinocchio", 
       "word_count": 52544, 
-      "filepath": "assets/pinocchio.epub", 
       "source": "https://www.gutenberg.org/files/500/500-h/500-h.htm", 
       "unique_words": 4945, 
       "contributor": "Carol Della Chiesa", 
@@ -193,6 +200,7 @@
         }
       ], 
       "identifier": "http://www.gutenberg.org/500", 
+      "creator": "Carlo Collodi", 
       "subject": "Fairy tales"
     }
   ]

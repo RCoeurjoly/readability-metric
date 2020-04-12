@@ -7,10 +7,7 @@ isort:
 lint:
 	flake8 --exclude=.tox
 
-test: clean download_test_assets
-	python test_corpus_analysis.py
-
-test_without_download:
+test: clean
 	python test_corpus_analysis.py
 
 setup_env:
@@ -27,7 +24,10 @@ source:
 	. bin/activate
 
 install:
-	sudo apt install mongodb
+	sudo rm /etc/apt/sources.list.d/mongodb*.list
+	sudo bash -c 'echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/4.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-4.0.list'
+	sudo apt update
+	sudo apt install mongodb-org
 	python -m pip install --upgrade pip
 	pip install -r requirements.txt
 
