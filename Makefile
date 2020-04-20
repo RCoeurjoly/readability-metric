@@ -24,10 +24,7 @@ source:
 	. bin/activate
 
 install:
-	sudo rm /etc/apt/sources.list.d/mongodb*.list
-	sudo bash -c 'echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/4.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-4.0.list'
-	sudo apt update
-	sudo apt install mongodb-org
+	sudo apt install mongodb
 	python -m pip install --upgrade pip
 	pip install -r requirements.txt
 
