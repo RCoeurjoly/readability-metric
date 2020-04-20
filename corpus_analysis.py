@@ -279,7 +279,7 @@ class Book(object):
             std_error_intercept = perr[1]
             #print("My sweep values:")
             #for i in sweep_values:
-            #    print (str(i) + ", " + str(sweep_values[i]))
+            #    print(str(i) + ", " + str(sweep_values[i]))
             self.fit.append({'type': analysis_type,
                              'samples': len(sweep_values),
                              'intercept': intercept,

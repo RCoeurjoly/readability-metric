@@ -246,7 +246,7 @@ def extract_fit_parameters(self, analysis_type, sweep_values):
         std_error_intercept = perr[1]
         #print("My sweep values:")
         #for i in sweep_values:
-        #    print (str(i) + ", " + str(sweep_values[i]))
+        #    print(str(i) + ", " + str(sweep_values[i]))
         self.fit.append({'type': analysis_type,
                          'samples': len(sweep_values),
                          'intercept': intercept,
@@ -641,17 +641,17 @@ import corpus_analysis
 MY_BOOK = corpus_analysis.Book("./test/pinocchio.epub")
 MY_BOOK.tokenize()
 MY_FREQDIST = FreqDist(MY_BOOK.tokens)
-print MY_BOOK.word_count
+print(MY_BOOK.word_count)
 percentage = 0
 cumulative_word_count = 0
 coverage = 1
-print MY_FREQDIST.most_common(coverage)[coverage - 1][1]
+print(MY_FREQDIST.most_common(coverage)[coverage - 1][1])
 margin_unknowable_list = MY_FREQDIST.most_common(MY_BOOK.word_count - 1) - MY_FREQDIST.most_common(int(round((MY_BOOK.word_count - 1)*0.98)))
 last_word_frequency = MY_FREQDIST.most_common(coverage)[coverage - 1][1]
 coverage += 1
 cumulative_word_count += last_word_frequency
 percentage = (cumulative_word_count*100/MY_BOOK.word_count)
-print margin_unknowable_list
+print(margin_unknowable_list)
    #+end_src
 
    #+RESULTS: vocabulary_coverage
@@ -798,9 +798,9 @@ with open('benchmarks.json', 'w') as outfile:
     for dirpath, __, files in os.walk('assets/'):
         for ebook in files:
             ebook_path = correct_dirpath(dirpath) + ebook
-            print "Reading book"
+            print("Reading book")
             my_book = corpus_analysis.Book(ebook_path, samples=10)
-            print "Book read"
+            print("Book read")
             DATA['books'].append(my_book.__dict__)
             outfile.write('\n')
 
@@ -997,9 +997,9 @@ def is_book_in_db(my_book, db):
     mycursor.execute(query)
     mycursor.fetchall()
     if mycursor.rowcount == 1:
-        print ("Book " + str(my_book.title)
-               + ", by " + str(my_book.creator)
-               + " already in database. Next.")
+        print("Book " + str(my_book.title)
+              + ", by " + str(my_book.creator)
+              + " already in database. Next.")
         return True
     return False
 #+end_src
@@ -1048,7 +1048,7 @@ from corpus_analysis import Book
 moby_dick = Book("test/moby.epub")
 moby_dick.extract_text()
 moby_dick.tokenize()
-print moby_dick.title
+print(moby_dick.title)
 with open('moby.tsv', 'w+') as my_file:
     my_file.write(str(moby_dick.word_count) + "\t" + str(moby_dick.unique_words) + "\n")
 #+END_SRC
@@ -1063,7 +1063,7 @@ from corpus_analysis import Book
 pinocchio = Book("test/pinocchio.epub")
 pinocchio.extract_text()
 pinocchio.tokenize()
-print pinocchio.title
+print(pinocchio.title)
 
 with open('pinocchio.tsv', 'w') as my_file:
     my_file.write(str(pinocchio.word_count) + "\t" + str(pinocchio.unique_words) + "\n")
@@ -1078,7 +1078,7 @@ from corpus_analysis import Book
 moby_dick = Book("test/moby.epub")
 moby_dick.extract_text()
 moby_dick.tokenize()
-print moby_dick.title
+print(moby_dick.title)
 sweep_values = lexical_sweep(moby_dick.tokens, samples=100, log_x=False, log_y=False)
 with open('moby_sweep.tsv', 'w') as my_file:
     for sweep_value in sweep_values:
@@ -1095,7 +1095,7 @@ from corpus_analysis import Book, lexical_sweep
 pinocchio = Book("test/pinocchio.epub")
 pinocchio.extract_text()
 pinocchio.tokenize()
-print pinocchio.title
+print(pinocchio.title)
 sweep_values = lexical_sweep(pinocchio.tokens, samples=100, log_x=False, log_y=False)
 with open('pinocchio_sweep.tsv', 'w') as my_file:
     for sweep_value in sweep_values:
@@ -1215,10 +1215,10 @@ myquery = { "creator": "Carl Collodi", "title": "The Adventures of Pinocchio"}
 
 mydoc = mycol.find_one(myquery, {"creator":True, "title":True, "_id":False})
 if mydoc:
-    print "Found"
+    print("Found")
 else:
-    print "Not found"
-print mydoc
+    print("Not found")
+print(mydoc)
 #+end_src
 
 #+RESULTS:
