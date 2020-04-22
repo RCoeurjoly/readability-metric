@@ -141,7 +141,6 @@ class Book(object):
                 self.tokenize()
                 print("Calculating word sweep values")
                 sweep_values = lexical_sweep(self.tokens, slicing_function, samples)
-                self.fit = []
                 print("Word fit")
                 self.extract_fit_parameters("words", sweep_values)
                 if self.language == "zh" or self.language == "zh_Hant":
@@ -251,14 +250,12 @@ class Book(object):
         '''
         Curve fit.
         '''
+        log_x = True
+        function = linear_func
         if analysis_type == "words":
-            log_x = True
             log_y = True
-            function = linear_func
         elif analysis_type == "characters":
-            log_x = True
             log_y = False
-            function = linear_func
         if sweep_values:
             array = list(zip(*sweep_values))
             if log_x:
@@ -277,15 +274,14 @@ class Book(object):
             perr = np.sqrt(np.diag(pcov))
             std_error_slope = perr[0]
             std_error_intercept = perr[1]
-            #print("My sweep values:")
-            #for i in sweep_values:
-            #    print(str(i) + ", " + str(sweep_values[i]))
-            self.fit.append({'type': analysis_type,
-                             'samples': len(sweep_values),
-                             'intercept': intercept,
-                             'slope': slope,
-                             'std_error_intercept': std_error_intercept,
-                             'std_error_slope': std_error_slope})
+            fit = {'samples': len(sweep_values),
+                   'intercept': intercept,
+                   'slope': slope,
+                   'std_error_intercept': std_error_intercept,
+                   'std_error_slope': std_error_slope}
+            setattr(self,
+                    analysis_type + "_fit",
+                    fit)
 
     def delete_heavy_attributes(self):
         '''

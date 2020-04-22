@@ -85,7 +85,7 @@ class MyTest(unittest.TestCase):
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['filepath'], samples=10)
-                self.assertEqual(my_book.fit, benchmark['fit'])
+                self.assertEqual(my_book.words_fit, benchmark['words_fit'])
                 print("Fit for " + benchmark['title'] + " OK")
 
     def test_db_writing(self):

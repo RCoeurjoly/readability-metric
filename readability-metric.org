@@ -218,14 +218,12 @@ def extract_fit_parameters(self, analysis_type, sweep_values):
     '''
     Curve fit.
     '''
+    log_x = True
+    function = linear_func
     if analysis_type == "words":
-        log_x = True
         log_y = True
-        function = linear_func
     elif analysis_type == "characters":
-        log_x = True
         log_y = False
-        function = linear_func
     if sweep_values:
         array = list(zip(*sweep_values))
         if log_x:
@@ -244,15 +242,14 @@ def extract_fit_parameters(self, analysis_type, sweep_values):
         perr = np.sqrt(np.diag(pcov))
         std_error_slope = perr[0]
         std_error_intercept = perr[1]
-        #print("My sweep values:")
-        #for i in sweep_values:
-        #    print(str(i) + ", " + str(sweep_values[i]))
-        self.fit.append({'type': analysis_type,
-                         'samples': len(sweep_values),
-                         'intercept': intercept,
-                         'slope': slope,
-                         'std_error_intercept': std_error_intercept,
-                         'std_error_slope': std_error_slope})
+        fit = {'samples': len(sweep_values),
+               'intercept': intercept,
+               'slope': slope,
+               'std_error_intercept': std_error_intercept,
+               'std_error_slope': std_error_slope}
+        setattr(self,
+                analysis_type + "_fit",
+                fit)
 #+END_SRC
 
 #+RESULTS: lexical-sweep
@@ -334,7 +331,6 @@ def __init__(self, epub_filename, slicing_function=lexical_sweep_map, samples=0)
             self.tokenize()
             print("Calculating word sweep values")
             sweep_values = lexical_sweep(self.tokens, slicing_function, samples)
-            self.fit = []
             print("Word fit")
             self.extract_fit_parameters("words", sweep_values)
             if self.language == "zh" or self.language == "zh_Hant":
@@ -753,7 +749,7 @@ class MyTest(unittest.TestCase):
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
                 my_book = Book(benchmark['filepath'], samples=10)
-                self.assertEqual(my_book.fit, benchmark['fit'])
+                self.assertEqual(my_book.words_fit, benchmark['words_fit'])
                 print("Fit for " + benchmark['title'] + " OK")
 
     def test_db_writing(self):
