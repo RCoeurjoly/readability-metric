@@ -14,6 +14,7 @@ import re
 import lxml
 import ebooklib
 import pymongo
+import argparse
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
@@ -340,7 +341,6 @@ def backup_mongo(db):
     Write mongo file as json.
     '''
     try:
-        print(db)
         backup = subprocess.Popen(["mongodump", "--host", "localhost", "--db",
                                    db])
         # Wait for completion
@@ -348,11 +348,30 @@ def backup_mongo(db):
         if backup.returncode != 0:
             sys.exit(1)
         else:
-            print("Backup done for " + db)
+            print("Dump done for " + db)
     except OSError as ex:
         # Check for errors
         print(ex)
-        print("Backup failed for " + db)
+        print("Dump failed for " + db)
+
+
+def export_mongo(db, destination):
+    '''
+    Write mongo file as json.
+    '''
+    try:
+        backup = subprocess.Popen(["mongoexport", "--host", "localhost", "--db",
+                                   db, "--collection", "corpus", "-o", destination, "--jsonArray", "--pretty"])
+        # Wait for completion
+        backup.communicate()
+        if backup.returncode != 0:
+            sys.exit(1)
+        else:
+            print("Export done for " + db)
+    except OSError as ex:
+        # Check for errors
+        print(ex)
+        print("Export failed for " + db)
 # Main function
 
 
@@ -377,7 +396,7 @@ def analyse_file(ebookpath, my_col):
     """
     if ebookpath.endswith(".epub"):
         try:
-            ebook = re.search(r'.*(/.*$)', ebookpath).group(1)
+            ebook = ebookpath
             print("Checking if book " + ebook + " is in database")
             my_book = Book(ebookpath)
             if is_book_in_mongodb(my_book, my_col):
@@ -396,18 +415,16 @@ def analyse_file(ebookpath, my_col):
                 ebooklib.epub.EpubException) as ex:
             print(ex)
             return False
-        print("Only epubs can be analysed")
-        return False
+    print("Only epubs can be analysed")
+    return False
 
 
-def analyse_directory(argv):
+def analyse_directory(corpus_path, db, json_export):
     '''
     Main function: open and read all epub files in directory.
     Analyze them and populate data in database
     :param argv: command line args.
     '''
-    corpus_path = str(argv[1])
-    db = str(argv[2])
     books_analyzed = 1
     my_client, __, my_col = mongo_connection(db)
     for dirpath, __, files in os.walk(corpus_path):
@@ -417,22 +434,27 @@ def analyse_directory(argv):
                 print("Books analysed: " + str(books_analyzed + 1))
                 books_analyzed += 1
             if books_analyzed % 25 == 0:
-                print("Performing backup")
-                backup_mongo(db)
-    print("Performing final backup")
-    backup_mongo(db)
+                print("Performing export")
+                export_mongo(db, json_export)
+    print("Performing final export")
+    export_mongo(db, json_export)
     print("Closing db")
     my_client.close()
 
 
 def main(argv):
-    if str(argv[1]).endswith(".epub"):
-        db = str(argv[2])
-        __, __, my_col = mongo_connection(db)
-        return analyse_file(str(argv[1]), my_col)
-    else:
-        analyse_directory(argv)
-
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-c", "--corpus-dir", type=str, help="the corpus directory")
+    group.add_argument("-b", "--book", type=str, help="the book to be analyzed")
+    parser.add_argument("-j", "--json", type=str, help="the exported json")
+    parser.add_argument("-d", "--database", type=str, help="the database")
+    args = parser.parse_args()
+    if args.book is not None:
+        __, __, my_col = mongo_connection(args.database)
+        return analyse_file(args.book, my_col)
+    elif args.corpus_dir is not None:
+        analyse_directory(args.corpus_dir, args.database, args.json)
 
 if __name__ == '__main__':
     main(sys.argv)

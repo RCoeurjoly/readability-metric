@@ -1,0 +1,9 @@
+* readability-measure
+(Beta) Readability measures based on corpus linguistics
+** Usage
+*** Create virtual environment
+    If the project is cloned in home dir:
+   #+begin_src shell :shebang #!/bin/bash -i :results output
+python3 -m venv ~/readability-metric/env/
+   #+end_src
+*** Install requirements

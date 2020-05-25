@@ -5,7 +5,6 @@ Unit testing for the corpus analysis
 import pymongo
 import unittest
 import json
-# from decimal import *
 from ebooklib import epub
 from corpus_analysis import Book, lexical_sweep, linear_func, analyse_directory
 
@@ -92,13 +91,13 @@ class MyTest(unittest.TestCase):
         '''
         Write all books to database
         '''
-        my_args = ["whatever", "assets/", "library_test"]
+        my_args = ["assets/", "library_test", "dump/my_json.json"]
         # Drop database
         myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         mydb = myclient["library_test"]
         mycol = mydb["corpus"]
         mycol.drop()
-        analyse_directory(my_args)
+        analyse_directory(my_args[0], my_args[1], my_args[2])
         with open("benchmarks.json", "r") as test_cases:
             benchmarks = json.load(test_cases)
             for benchmark in benchmarks['books']:
