@@ -2,7 +2,7 @@ backports.functools-lru-cache==1.5
 beautifulsoup4==4.8.0
 bs4==0.0.1
 EbookLib==0.17.1
-lxml==4.5.0
+lxml==4.6.3
 nltk==3.5
 numpy==1.18.3
 polyglot==16.7.4
