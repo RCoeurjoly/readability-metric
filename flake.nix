@@ -30,15 +30,11 @@
           # Notice the reference to nixpkgs here.
           with import nixpkgs { system = "x86_64-linux"; };
           stdenv.mkDerivation {
-            name = "quicksort";
-            src = self;
-            dontStrip = true;
-            buildPhase = "gcc -O0 -g -o quicksort ./quicksort.cpp -lstdc++";
-            installPhase = "mkdir -p $out/bin; install -t $out/bin quicksort";
+            name = "lol";
           };
 
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ gdb rr poetry ];
+          buildInputs = with pkgs; [ poetry mongodb ];
           inputsFrom = builtins.attrValues self.packages.${system};
         };
       });
