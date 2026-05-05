@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+# ruff: noqa
 '''
 corpus-analysis.py: readability metric for epub ebooks.
-Version 1.0
+Version 2.0
 Copyright (C) 2019  Roland Coeurjoly <rolandcoeurjoly@gmail.com>
 '''
 # Imports
@@ -20,8 +21,6 @@ from bs4 import BeautifulSoup
 from scipy.optimize import curve_fit
 import numpy as np
 from numpy.lib.scimath import log as log
-from polyglot.text import Text
-from nltk import FreqDist
 # Constants
 PRINTABLE = {
     # 'Cc',
@@ -456,5 +455,8 @@ def main(argv):
     elif args.corpus_dir is not None:
         analyse_directory(args.corpus_dir, args.database, args.json)
 
+from readability_metric import *  # noqa: F401,F403,E402
+
+
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

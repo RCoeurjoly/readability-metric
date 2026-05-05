@@ -1,18 +1,37 @@
-* readability-measure
-(Beta) Readability measures based on corpus linguistics
-** Installation
-*** Installing nix and flakes
-    To install nix, follow instructions [[https://nixos.org/download.html][here]].
+* readability-metric
+Readability metrics for EPUB books.
 
-    Installing flakes.
-    #+begin_src shell :shebang #!/bin/bash -i :results output
-nix-shell -I nixpkgs=channel:nixos-20.03 --packages nixFlakes
-    #+end_src
+** Nix usage
 
-** Usage
-*** Create virtual environment
-    If the project is cloned in home dir:
-   #+begin_src shell :shebang #!/bin/bash -i :results output
-python3 -m venv ~/readability-metric/env/
-   #+end_src
-*** Install requirements
+Process a directory of EPUB files to JSON Lines:
+
+#+begin_src shell
+nix run . -- --corpus-dir ~/Downloads --output results/downloads-readability.jsonl --jobs 4
+#+end_src
+
+Run the test suite:
+
+#+begin_src shell
+nix develop -c make test
+#+end_src
+
+Build the packaged command:
+
+#+begin_src shell
+nix build
+#+end_src
+
+** Python usage
+
+#+begin_src shell
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m readability_metric --corpus-dir ~/Downloads --output results/downloads-readability.jsonl
+#+end_src
+
+** Output
+
+The default batch processor writes one JSON object per line. Each record includes EPUB metadata, detected language, token counts, vocabulary-growth fit parameters when the book is below the configured size limit, and per-file errors without stopping the whole batch.
+
+The legacy MongoDB path is still available by passing =--database= with =--book= or =--corpus-dir=.

@@ -1,8 +1,8 @@
 import sys
 from corpus_analysis import Book
 
-moby_dick = Book("test/moby.epub")
-pinocchio = Book("test/pinocchio.epub")
+moby_dick = Book("assets/moby.epub", samples=10)
+pinocchio = Book("assets/pinocchio.epub", samples=10)
 # moby_dick.extract_text()
 # pinocchio.extract_text()
 # moby_dick.tokenize()
@@ -16,8 +16,8 @@ print('\n'.join(sys.path))
 
 
 def dummy_function():
-    moby_dick = Book("test/moby.epub")
-    pinocchio = Book("test/pinocchio.epub")
+    moby_dick = Book("assets/moby.epub")
+    pinocchio = Book("assets/pinocchio.epub")
     moby_dick.extract_text()
     pinocchio.extract_text()
     moby_dick.tokenize()

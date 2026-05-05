@@ -1,35 +1,23 @@
-clean:
-	rm -rf test
+.PHONY: clean lint test nix-check process-downloads
 
-isort:
-	sh -c "isort --skip-glob=.tox --recursive . "
+DOWNLOADS ?= $(HOME)/Downloads
+OUTPUT ?= results/downloads-readability.jsonl
+JOBS ?= 1
+SAMPLES ?= 10
+MAX_SIZE_MB ?= 10
+
+clean:
+	rm -rf .pytest_cache __pycache__ result
 
 lint:
-	flake8 --exclude=.tox
+	ruff check .
 
-test: clean
-	python test_corpus_analysis.py
+test:
+	python -m unittest -v
 
-setup_env:
-	virtualenv ~/readability-metric
+nix-check:
+	nix flake check
 
-setup_mongo:
-	sudo service mongod start
-	rm /var/lib/mongodb/mongod.lock
-
-run: source
-	python /home/rcl/readability-measure/corpus_analysis.py /media/root/terabyte
-
-source:
-	. bin/activate
-
-install:
-	sudo apt install mongodb
-	python -m pip install --upgrade pip
-	pip install -r requirements.txt
-
-download_test_assets:
-	mkdir test/
-	mkdir test/db
-	touch test/db/library_test.db
-	bash scripts/download_benchmark.sh
+process-downloads:
+	mkdir -p $(dir $(OUTPUT))
+	nix run . -- --corpus-dir "$(DOWNLOADS)" --output "$(OUTPUT)" --jobs "$(JOBS)" --samples "$(SAMPLES)" --max-size-mb "$(MAX_SIZE_MB)"

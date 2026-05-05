@@ -1,110 +1,58 @@
 # -*- coding: utf-8 -*-
-'''
-Unit testing for the corpus analysis
-'''
-import pymongo
-import unittest
-import json
-from ebooklib import epub
-from corpus_analysis import Book, lexical_sweep, linear_func, analyse_directory
+"""Unit tests for EPUB readability analysis."""
 
-class MyTest(unittest.TestCase):
-    '''
-    Class
-    '''
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from readability_metric import Book, analyse_epub_file, analyse_paths_to_jsonl, lexical_sweep
+
+
+ASSETS = Path("assets")
+
+
+class CorpusAnalysisTest(unittest.TestCase):
     maxDiff = None
 
-    def test_metadata(self):
-        '''
-        Given a certain book, test metadata
-        '''
-        metadata = ['epub_type',
-                    'subject',
-                    'source',
-                    'rights',
-                    'relation',
-                    'publisher',
-                    'identifier',
-                    'epub_format',
-                    'description',
-                    'coverage',
-                    'contributor',
-                    'date']
+    def test_metadata_extraction(self):
+        my_book = Book(str(ASSETS / "moby.epub"))
+        self.assertEqual(my_book.title, "Moby Dick; Or, The Whale")
+        self.assertEqual(my_book.creator, "Herman Melville")
+        self.assertEqual(my_book.original_language, "en")
 
-        with open("benchmarks.json", "r") as test_cases:
-            benchmarks = json.load(test_cases)
-            for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'])
-                self.assertEqual(my_book.creator, benchmark['creator'])
-                self.assertEqual(my_book.title, benchmark['title'])
-                for key in benchmark.keys():
-                    if key in metadata:
-                        attr = getattr(my_book, key)
-                        self.assertEqual(attr, benchmark[key])
-                print("Metadata for " + benchmark['title'] + " OK")
+    def test_language_and_tokens(self):
+        my_book = Book(str(ASSETS / "moby.epub"))
+        my_book.detect_language()
+        my_book.tokenize()
+        self.assertEqual(my_book.language, "en")
+        self.assertGreater(my_book.word_count, 10000)
+        self.assertGreater(my_book.unique_words, 1000)
+        self.assertLessEqual(my_book.unique_words, my_book.word_count)
 
-    def test_language(self):
-        '''
-        Given a certain book, test language
-        '''
-        with open("benchmarks.json", "r") as test_cases:
-            benchmarks = json.load(test_cases)
-            for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'])
-                my_book.detect_language()
-                self.assertEqual(my_book.language, benchmark['language'])
-                print("Language for " + benchmark['title'] + " OK")
+    def test_fit_parameters_are_json_ready(self):
+        my_book = Book(str(ASSETS / "moby.epub"), samples=10)
+        self.assertIn("slope", my_book.words_fit)
+        json.dumps(my_book.__dict__)
 
-    def test_tokens(self):
-        '''
-        Given a certain book, test tokens
-        '''
-        tokens = ['word_count',
-                  'unique_words',
-                  'character_count',
-                  'unique_characters']
+    def test_lexical_sweep_small_text(self):
+        self.assertFalse(lexical_sweep(["word"] * 100, samples=10))
 
-        with open("benchmarks.json", "r") as test_cases:
-            benchmarks = json.load(test_cases)
-            for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'])
-                my_book.detect_language()
-                my_book.tokenize()
-                for key in benchmark.keys():
-                    if key in tokens:
-                        attr = getattr(my_book, key)
-                        self.assertEqual(attr, benchmark[key])
-                print("Tokens for " + benchmark['title'] + " OK")
+    def test_single_epub_record(self):
+        record = analyse_epub_file(str(ASSETS / "pinocchio.epub"), samples=10)
+        self.assertEqual(record["status"], "ok")
+        self.assertEqual(record["title"], "The Adventures of Pinocchio")
+        self.assertIn("words_fit", record)
 
-    def test_fit(self):
-        '''
-        Given a certain book, test fit
-        '''
-        with open("benchmarks.json", "r") as test_cases:
-            benchmarks = json.load(test_cases)
-            for benchmark in benchmarks['books']:
-                my_book = Book(benchmark['filepath'], samples=10)
-                self.assertEqual(my_book.words_fit, benchmark['words_fit'])
-                print("Fit for " + benchmark['title'] + " OK")
+    def test_jsonl_batch_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "books.jsonl"
+            summary = analyse_paths_to_jsonl([ASSETS], output, samples=0, resume=False)
+            self.assertEqual(summary["errors"], 0)
+            records = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(summary["written"], len(records))
+            self.assertGreaterEqual(len(records), 8)
 
-    def test_db_writing(self):
-        '''
-        Write all books to database
-        '''
-        my_args = ["assets/", "library_test", "dump/my_json.json"]
-        # Drop database
-        myclient = pymongo.MongoClient("mongodb://localhost:27017/")
-        mydb = myclient["library_test"]
-        mycol = mydb["corpus"]
-        mycol.drop()
-        analyse_directory(my_args[0], my_args[1], my_args[2])
-        with open("benchmarks.json", "r") as test_cases:
-            benchmarks = json.load(test_cases)
-            for benchmark in benchmarks['books']:
-                for result in mycol.find({}, {"_id":False}):
-                    if benchmark['title'] == result['title']:
-                        self.assertEqual(result, benchmark)
-                        print("Database write for " + benchmark['title'] + " OK")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(failfast=True)

@@ -13,6 +13,9 @@
 #+LATEX_HEADER: \Address{Pending}
 #+LATEX_HEADER: \Abstract{We present a readability metric, capable of being applied to books written in multiple languages and easy to compute, therefore lending itself to be applied to large corpora composed of thousands of books. It uses length of text (metricd in words) versus unique words to compute the rate at which the author introduces new vocabulary in a certain book. This rate can then be used to rank the book with respect to others. This readability metric is only suitable to texts of at least 10.000 (ten thousand) words. It is therefore used primarely for the analysis of }
 #+STARTUP: oddeven
+#+begin_quote
+This is the legacy literate notebook for the original implementation. The maintained Python entry point is now =readability_metric.py= and the reproducible environment is in =flake.nix=.
+#+end_quote
 * Summary
   The main idea of this paper is that the rate at which an author introduces new words into a book can function as a readability metric.
   This rate takes into account the number of unique words and the length in words of a book.

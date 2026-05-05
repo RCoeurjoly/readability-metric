@@ -1,7 +1,10 @@
 *.epub
 !assets/*
 *.pyc
+__pycache__/
+.venv/
 env/
 test/
 dump/
 result
+results/

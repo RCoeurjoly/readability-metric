@@ -1,18 +1,36 @@
-[tool.poetry]
+[project]
 name = "readability-metric"
-version = "0.1.0"
-description = ""
-authors = ["Roland Coeurjoly <rolandcoeurjoly@gmail.com>"]
+version = "0.2.0"
+description = "Readability metrics for EPUB books"
+authors = [
+  { name = "Roland Coeurjoly", email = "rolandcoeurjoly@gmail.com" },
+]
+readme = { file = "README.org", content-type = "text/plain" }
+requires-python = ">=3.11"
+dependencies = [
+  "beautifulsoup4>=4.12",
+  "EbookLib>=0.18",
+  "langdetect>=1.0.9",
+  "lxml>=5.0",
+  "numpy>=1.26",
+  "pymongo>=4.6",
+  "scipy>=1.11",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.11"
-nltk = "^3.6.6"
-numpy = "^1.21.2"
-pymongo = "^4.6.3"
-EbookLib = "^0.17.1"
+[project.scripts]
+readability-metric = "readability_metric:main"
 
-[tool.poetry.dev-dependencies]
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.4",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["readability_metric", "corpus_analysis"]
+
+[tool.ruff]
+line-length = 100
