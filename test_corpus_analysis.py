@@ -6,7 +6,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from readability_metric import Book, analyse_epub_file, analyse_paths_to_jsonl, lexical_sweep
+from readability_metric import (
+    PREDICTION_WORD_COUNT,
+    Book,
+    analyse_epub_file,
+    analyse_paths_to_jsonl,
+    lexical_sweep,
+    predicted_unique_words,
+)
 
 
 ASSETS = Path("assets")
@@ -33,6 +40,8 @@ class CorpusAnalysisTest(unittest.TestCase):
     def test_fit_parameters_are_json_ready(self):
         my_book = Book(str(ASSETS / "moby.epub"), samples=10)
         self.assertIn("slope", my_book.words_fit)
+        expected = predicted_unique_words(my_book.words_fit, PREDICTION_WORD_COUNT)
+        self.assertAlmostEqual(my_book.predicted_unique_words_20k, expected)
         json.dumps(my_book.__dict__)
 
     def test_lexical_sweep_small_text(self):
@@ -43,6 +52,7 @@ class CorpusAnalysisTest(unittest.TestCase):
         self.assertEqual(record["status"], "ok")
         self.assertEqual(record["title"], "The Adventures of Pinocchio")
         self.assertIn("words_fit", record)
+        self.assertIn("predicted_unique_words_20k", record)
 
     def test_jsonl_batch_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:

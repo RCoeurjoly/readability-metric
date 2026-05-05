@@ -34,4 +34,14 @@ python -m readability_metric --corpus-dir ~/Downloads --output results/downloads
 
 The default batch processor writes one JSON object per line. Each record includes EPUB metadata, detected language, token counts, vocabulary-growth fit parameters when the book is below the configured size limit, and per-file errors without stopping the whole batch.
 
+For ranking by lexical difficulty, prefer =predicted_unique_words_20k= over the raw slope. It estimates how many unique word forms the model expects in the first 20,000 words, using both the fit slope and intercept. Lower values mean slower vocabulary growth and therefore easier books by this metric.
+
+#+begin_src shell
+jq -r '
+  select(.language=="ca" and .status=="ok" and .predicted_unique_words_20k != null)
+  | [.predicted_unique_words_20k, .word_count, .unique_words, (.creator // ""), (.title // "")]
+  | @tsv
+' results/downloads-readability.jsonl | sort -n | head -20
+#+end_src
+
 The legacy MongoDB path is still available by passing =--database= with =--book= or =--corpus-dir=.

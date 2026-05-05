@@ -28,9 +28,10 @@ from lxml import etree
 from scipy.optimize import OptimizeWarning, curve_fit
 
 
-ANALYSIS_VERSION = "2.0"
+ANALYSIS_VERSION = "2.1"
 DEFAULT_SAMPLES = 10
 DEFAULT_MAX_SIZE_MB = 10.0
+PREDICTION_WORD_COUNT = 20000
 LANGUAGE_DETECTION_LIMIT = 50000
 
 DetectorFactory.seed = 0
@@ -133,6 +134,11 @@ def log_func(variable, coefficient, x_intercept):
 def log_log_func(variable, coefficient, intercept):
     """Log-log model."""
     return math.e ** (coefficient * np.log(variable) + intercept)
+
+
+def predicted_unique_words(fit, word_count=PREDICTION_WORD_COUNT):
+    """Predict unique word count at a fixed text length from a log-log fit."""
+    return float(math.exp(fit["intercept"] + fit["slope"] * math.log(word_count)))
 
 
 def clean_non_printable(text):
@@ -427,6 +433,8 @@ class Book(object):
             "std_error_slope": float(perr[0]),
         }
         setattr(self, analysis_type + "_fit", fit)
+        if analysis_type == "words" and self.word_count >= PREDICTION_WORD_COUNT:
+            self.predicted_unique_words_20k = predicted_unique_words(fit)
 
     def delete_heavy_attributes(self):
         """Delete text and token data before serializing a book."""
