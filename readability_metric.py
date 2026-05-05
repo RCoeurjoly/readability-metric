@@ -28,7 +28,7 @@ from lxml import etree
 from scipy.optimize import OptimizeWarning, curve_fit
 
 
-ANALYSIS_VERSION = "2.1"
+ANALYSIS_VERSION = "2.3"
 DEFAULT_SAMPLES = 10
 DEFAULT_MAX_SIZE_MB = 10.0
 PREDICTION_WORD_COUNT = 20000
@@ -71,6 +71,20 @@ PRINTABLE = {
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+LANGUAGE_CODE_ALIASES = {
+    "cat": "ca",
+    "por": "pt",
+    "prt": "pt",
+    "eng": "en",
+    "spa": "es",
+    "esp": "es",
+    "cast": "es",
+    "fre": "fr",
+    "fra": "fr",
+    "ger": "de",
+    "deu": "de",
+    "ita": "it",
+}
 
 
 def lexical_sweep_map(start, stop, step, text):
@@ -153,6 +167,18 @@ def clean_dots(dictionary):
 
 def is_chinese_language(language_code):
     return bool(language_code) and language_code.lower().replace("_", "-").startswith("zh")
+
+
+def normalize_language_code(language_code):
+    if not language_code:
+        return None
+    normalized = language_code.strip().lower().replace("_", "-")
+    if not normalized:
+        return None
+    if normalized in ("und", "unknown"):
+        return None
+    primary = normalized.split("-")[0]
+    return LANGUAGE_CODE_ALIASES.get(primary, primary)
 
 
 def detect_language_code(text):
@@ -379,10 +405,13 @@ class Book(object):
         self.text = clean_non_printable(html_filtered)
 
     def detect_language(self):
-        """Detect language from extracted text rather than trusting EPUB metadata."""
+        """Choose a language code from EPUB metadata with detector fallback."""
         if not hasattr(self, "text"):
             self.extract_text()
-        self.language = detect_language_code(self.text)
+        self.detected_language = detect_language_code(self.text)
+        self.language = normalize_language_code(getattr(self, "original_language", None))
+        if not self.language:
+            self.language = self.detected_language
 
     def tokenize(self):
         """Tokenize the extracted text."""
@@ -623,6 +652,53 @@ def processed_filepaths(output_path):
     return processed
 
 
+def add_language_percentiles_to_records(records):
+    """Add same-language lexical ease percentiles to records in place."""
+    by_language = {}
+    for index, record in enumerate(records):
+        predicted = record.get("predicted_unique_words_20k")
+        language = record.get("language")
+        if record.get("status") != "ok" or predicted is None or not language:
+            continue
+        by_language.setdefault(language, []).append((float(predicted), index))
+
+    for language_records in by_language.values():
+        language_records.sort(key=lambda item: item[0])
+        sample_size = len(language_records)
+        if sample_size == 1:
+            records[language_records[0][1]]["lexical_ease_percentile_by_language"] = 100.0
+            records[language_records[0][1]]["lexical_ease_language_sample_size"] = sample_size
+            continue
+
+        start = 0
+        while start < sample_size:
+            end = start + 1
+            while end < sample_size and language_records[end][0] == language_records[start][0]:
+                end += 1
+            average_rank = (start + end - 1) / 2
+            percentile = 100 * (sample_size - 1 - average_rank) / (sample_size - 1)
+            for __, index in language_records[start:end]:
+                records[index]["lexical_ease_percentile_by_language"] = percentile
+                records[index]["lexical_ease_language_sample_size"] = sample_size
+            start = end
+
+
+def add_language_percentiles_to_jsonl(output_path):
+    """Rewrite a JSONL output file with language-relative lexical percentiles."""
+    if not output_path.exists():
+        return 0
+    records = []
+    with output_path.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if line.strip():
+                records.append(json.loads(line))
+    add_language_percentiles_to_records(records)
+    with output_path.open("w", encoding="utf-8") as jsonl_file:
+        for record in records:
+            jsonl_file.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+    return len(records)
+
+
 def analyse_paths_to_jsonl(
     input_paths,
     output,
@@ -674,6 +750,7 @@ def analyse_paths_to_jsonl(
                 errors += int(record.get("status") == "error")
                 if written % progress_every == 0 or written == total:
                     print(f"Processed {written}/{total} EPUB files")
+    add_language_percentiles_to_jsonl(output_path)
     return {"total": total, "written": written, "errors": errors, "output": str(output_path)}
 
 
