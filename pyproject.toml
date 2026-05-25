@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 readability-metric = "readability_metric:main"
+story-pipeline = "story_pipeline:main"
 
 [project.optional-dependencies]
 dev = [
@@ -30,7 +31,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["readability_metric", "corpus_analysis"]
+py-modules = ["readability_metric", "corpus_analysis", "story_pipeline"]
 
 [tool.ruff]
 line-length = 100

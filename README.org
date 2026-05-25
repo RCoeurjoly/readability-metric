@@ -1,4 +1,9 @@
 * readability-metric
+
+#+begin_note
+For this workspace, create a git commit for each change you make, then move to the next change.
+#+end_note
+
 Readability metrics for EPUB books.
 
 ** Nix usage
@@ -45,3 +50,38 @@ jq -r '
 #+end_src
 
 The legacy MongoDB path is still available by passing =--database= with =--book= or =--corpus-dir=.
+
+** Chinese Story Ladder Pipeline
+
+Generate a staged set of beginner-level Chinese stories from an EPUB corpus:
+
+#+begin_src shell
+python3 story_pipeline.py \
+  --corpus-dir ~/haodoo \
+  --output-dir ~/haodoo-stories \
+  --stages 12 \
+  --stage-word-count 8 \
+  --min-repetitions 5 \
+  --target-ratio 0.98
+#+end_src
+
+The output bundle contains:
+
+- `curriculum.json`: ordered stage manifest and quality metrics
+- `stage_XX.html`: hidden-text HTML book file with reveal control and audio reference
+- `stage_XX.txt`: plain text copy
+- `stage_XX.json`: per-stage metadata (coverage, repeats, unknown streak)
+- `stage_XX.tts.json`: shell command suggested for text-to-speech
+
+Important defaults are exposed via CLI:
+
+- target known-word coverage before introducing new words (`--target-ratio`, default `0.98`)
+- minimum repetitions per new word per stage (`--min-repetitions`, default `5`)
+- number of new words per stage (`--stage-word-count`, default `8`)
+- max generated sentences per stage (`--max-sentence-count`, default `30`)
+
+`StoryDraft` includes both:
+- `known_ratio`: coverage against previously known words
+- `known_ratio_with_introduced`: coverage after adding that stage’s new words
+
+This is a practical starter toward a zero-cognate path: you can use the generated HTML for listening-first reading by creating audio with the emitted TTS command, then un-hiding text gradually.
