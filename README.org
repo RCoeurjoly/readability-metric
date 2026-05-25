@@ -93,7 +93,14 @@ python3 -m vocabulary_pipeline \
   --output-words results/zh-words.jsonl \
   --with-pos \
   --min-count 2 \
-  --top 2000
+  --top 2000 \
+  --with-phrases \
+  --output-phrases results/zh-phrases.jsonl \
+  --phrase-max-length 3 \
+  --fetch-images \
+  --image-output results/zh-images.jsonl \
+  --image-limit 500 \
+  --allow-non-open
 #+end_src
 
-`--output-chars` and `--output-words` are independent. Use `--chars-only` or `--words-only` to restrict extraction.
+`--output-chars` and `--output-words` are independent. Use `--chars-only` or `--words-only` to restrict extraction. Add `--with-phrases` plus `--output-phrases` for multi-word phrases, and `--fetch-images` (with optional `--image-limit`) for open-license Wikimedia image lookups.

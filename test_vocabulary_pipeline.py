@@ -14,25 +14,25 @@ import vocabulary_pipeline as vp
 
 def _build_fake_epub(path: Path, title: str, language: str, text: str) -> None:
     container_xml = """<?xml version='1.0' encoding='utf-8'?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="OEBPS/book.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>"""
+    <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+      <rootfiles>
+        <rootfile full-path="OEBPS/book.opf" media-type="application/oebps-package+xml"/>
+      </rootfiles>
+    </container>"""
     opf_xml = f"""<?xml version='1.0' encoding='utf-8'?>
-<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
-  <metadata>
-    <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">{title}</dc:title>
-    <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">作者</dc:creator>
-    <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">{language}</dc:language>
-  </metadata>
-  <manifest>
-    <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml" />
-  </manifest>
-  <spine>
-    <itemref idref="chapter1" />
-  </spine>
-</package>"""
+    <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
+      <metadata>
+        <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">{title}</dc:title>
+        <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">作者</dc:creator>
+        <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">{language}</dc:language>
+      </metadata>
+      <manifest>
+        <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml" />
+      </manifest>
+      <spine>
+        <itemref idref="chapter1" />
+      </spine>
+    </package>"""
     chapter_xml = f"<html><body><p>{text}</p></body></html>"
 
     with zipfile.ZipFile(path, "w") as archive:
@@ -77,6 +77,77 @@ class VocabularyPipelineTest(unittest.TestCase):
         self.assertEqual(by_word["小猫"]["pos_primary"], "noun")
         self.assertEqual(by_word["喜欢"]["pos_primary"], "verb")
         self.assertEqual(by_word["喜欢"]["pos_distribution"][0]["pos"], "verb")
+
+    def test_build_chinese_profile_with_phrases(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "测试", "zh", "小猫看电视")
+
+            with patch("vocabulary_pipeline._word_tokens", return_value=["小猫", "看", "电视", "小猫", "看", "电视"]):
+                profiles = vp.build_chinese_frequency_profiles(
+                    corpus_root,
+                    min_count=1,
+                    include_chars=False,
+                    include_words=False,
+                    include_phrases=True,
+                    phrase_max_length=3,
+                    top=10,
+                )
+
+        phrase_items = {entry["item"]: entry["count"] for entry in profiles["phrases"]}
+        self.assertEqual(phrase_items["小猫看"], 2)
+        self.assertEqual(phrase_items["看电视"], 2)
+        self.assertEqual(phrase_items["小猫看电视"], 2)
+
+    def test_enrich_with_images_uses_cache_and_filter(self):
+        entries = [
+            {"unit": "word", "item": "猫"},
+            {"unit": "word", "item": "狗"},
+            {"unit": "word", "item": "鸟"},
+        ]
+        cached_result = {
+            "猫": {
+                "status": "hit",
+                "provider": "wikimedia",
+                "query": "猫",
+                "is_open_license": True,
+                "image_url": "cache.example/cat.svg",
+            }
+        }
+
+        def _fake_fetcher(query: str) -> dict:
+            if query == "狗":
+                return {
+                    "status": "hit",
+                    "provider": "wikimedia",
+                    "query": query,
+                    "is_open_license": False,
+                    "image_url": "external.example/dog.svg",
+                }
+            return {
+                "status": "missing",
+                "provider": "wikimedia",
+                "query": query,
+                "is_open_license": False,
+            }
+
+        with patch("vocabulary_pipeline._fetch_wikimedia_image", side_effect=_fake_fetcher):
+            enriched, stats = vp.enrich_with_images(
+                entries,
+                image_limit=2,
+                cache=cached_result,
+                require_open_license=True,
+                fetcher=vp._fetch_wikimedia_image,
+            )
+
+        self.assertEqual(stats["requested"], 2)
+        self.assertEqual(stats["hits"], 1)
+        self.assertEqual(stats["skipped_non_open"], 1)
+        self.assertEqual(len(enriched), 2)
+        self.assertEqual(enriched[0]["item"], "猫")
+        self.assertEqual(enriched[0]["image_status"], "hit")
+        self.assertEqual(enriched[1]["image_status"], "skipped_non_open")
 
     def test_write_jsonl_outputs_profile(self):
         with TemporaryDirectory() as tempdir:
