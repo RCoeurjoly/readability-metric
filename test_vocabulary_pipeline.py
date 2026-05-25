@@ -14,23 +14,23 @@ import vocabulary_pipeline as vp
 
 def _build_fake_epub(path: Path, title: str, language: str, text: str) -> None:
     container_xml = """<?xml version='1.0' encoding='utf-8'?>
-<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
-    <rootfile full-path=\"OEBPS/book.opf\" media-type=\"application/oebps-package+xml\"/>
+    <rootfile full-path="OEBPS/book.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
 </container>"""
     opf_xml = f"""<?xml version='1.0' encoding='utf-8'?>
-<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\" unique-identifier=\"uid\">
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
   <metadata>
-    <dc:title xmlns:dc=\"http://purl.org/dc/elements/1.1/\">{title}</dc:title>
-    <dc:creator xmlns:dc=\"http://purl.org/dc/elements/1.1/\">作者</dc:creator>
-    <dc:language xmlns:dc=\"http://purl.org/dc/elements/1.1/\">{language}</dc:language>
+    <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">{title}</dc:title>
+    <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">作者</dc:creator>
+    <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">{language}</dc:language>
   </metadata>
   <manifest>
-    <item id=\"chapter1\" href=\"chapter1.xhtml\" media-type=\"application/xhtml+xml\" />
+    <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml" />
   </manifest>
   <spine>
-    <itemref idref=\"chapter1\" />
+    <itemref idref="chapter1" />
   </spine>
 </package>"""
     chapter_xml = f"<html><body><p>{text}</p></body></html>"
@@ -60,6 +60,23 @@ class VocabularyPipelineTest(unittest.TestCase):
         self.assertGreaterEqual(profiles["chars"][1]["count"], profiles["chars"][2]["count"])
         self.assertTrue(all(item["unit"] == "char" for item in profiles["chars"]))
         self.assertTrue(profiles["words"])
+
+    def test_build_chinese_profile_with_pos(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "测试", "zh", "小猫喜欢看电视")
+
+            with patch(
+                "vocabulary_pipeline._word_tokens_with_pos",
+                return_value=[("小猫", "n"), ("喜欢", "v"), ("看", "v"), ("电视", "n")],
+            ), patch("readability_metric.detect_language_code", return_value="zh"):
+                profiles = vp.build_chinese_frequency_profiles(corpus_root, with_pos=True, min_count=1)
+
+        by_word = {entry["item"]: entry for entry in profiles["words"]}
+        self.assertEqual(by_word["小猫"]["pos_primary"], "noun")
+        self.assertEqual(by_word["喜欢"]["pos_primary"], "verb")
+        self.assertEqual(by_word["喜欢"]["pos_distribution"][0]["pos"], "verb")
 
     def test_write_jsonl_outputs_profile(self):
         with TemporaryDirectory() as tempdir:

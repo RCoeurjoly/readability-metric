@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import DefaultDict, Dict, Iterable, List, Sequence, Tuple
 
 import readability_metric
 
 try:  # pragma: no cover - optional dependency for proper Chinese word segmentation.
     import jieba  # type: ignore
+    import jieba.posseg as jieba_posseg  # type: ignore
 except Exception:  # pragma: no cover
     jieba = None
+    jieba_posseg = None
 
 
 def _iter_chinese_epub_texts(corpus_root: Path) -> Iterable[str]:
@@ -37,6 +39,39 @@ def _word_tokens(text: str) -> Iterable[str]:
     for token in jieba.lcut(text):
         if readability_metric.CJK_RE.search(token):
             yield token.strip()
+
+
+def _coarse_pos(raw_pos: str) -> str:
+    if not raw_pos:
+        return "other"
+    if raw_pos.startswith("n"):
+        return "noun"
+    if raw_pos.startswith("v"):
+        return "verb"
+    if raw_pos.startswith("a"):
+        return "adjective"
+    if raw_pos.startswith("d"):
+        return "adverb"
+    if raw_pos in {"r", "rr", "rz", "rg"}:
+        return "pronoun"
+    if raw_pos in {"m", "q"}:
+        return "quantifier"
+    if raw_pos in {"p", "u", "c"}:
+        return "function"
+    return "other"
+
+
+def _word_tokens_with_pos(text: str) -> Iterable[Tuple[str, str]]:
+    if jieba_posseg is None:
+        for token in _word_tokens(text):
+            yield token.strip(), ""
+        return
+
+    for item in jieba_posseg.cut(text):
+        token = (item.word or "").strip()
+        raw_pos = item.flag or ""
+        if token and readability_metric.CJK_RE.search(token):
+            yield token, raw_pos
 
 
 def _to_ranked_entries(counter: Counter, unit: str, top: int, min_count: int) -> List[dict]:
@@ -74,17 +109,44 @@ def build_chinese_frequency_profiles(
     top: int = 0,
     include_chars: bool = True,
     include_words: bool = True,
+    with_pos: bool = False,
 ) -> Dict[str, List[dict]]:
     char_counter: Counter[str] = Counter()
     word_counter: Counter[str] = Counter()
+    word_pos_counter: DefaultDict[str, Counter] = defaultdict(Counter)
 
     for text in _iter_chinese_epub_texts(corpus_root):
         char_counter.update(_character_tokens(text))
-        word_counter.update(_word_tokens(text))
+        if with_pos:
+            for word, raw_pos in _word_tokens_with_pos(text):
+                word_counter[word] += 1
+                word_pos_counter[word][_coarse_pos(raw_pos)] += 1
+        else:
+            word_counter.update(_word_tokens(text))
+
+    words = _to_ranked_entries(word_counter, "word", top=top, min_count=min_count) if include_words else []
+    if with_pos:
+        for entry in words:
+            pos_counts = word_pos_counter.get(entry["item"], Counter())
+            if pos_counts:
+                ranked = sorted(pos_counts.items(), key=lambda item: (-item[1], item[0]))
+                total = sum(value for _, value in ranked)
+                entry["pos_primary"] = ranked[0][0]
+                entry["pos_distribution"] = [
+                    {
+                        "pos": pos,
+                        "count": int(count),
+                        "share": count / total if total else 0.0,
+                    }
+                    for pos, count in ranked
+                ]
+            else:
+                entry["pos_primary"] = "other"
+                entry["pos_distribution"] = [{"pos": "other", "count": entry["count"], "share": 1.0}]
 
     return {
         "chars": _to_ranked_entries(char_counter, "char", top=top, min_count=min_count) if include_chars else [],
-        "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count) if include_words else [],
+        "words": words,
     }
 
 
@@ -104,6 +166,7 @@ def _parse_args(argv=None):
     parser.add_argument("--min-count", type=int, default=2)
     parser.add_argument("--chars-only", action="store_true", help="Only export character frequencies")
     parser.add_argument("--words-only", action="store_true", help="Only export word frequencies")
+    parser.add_argument("--with-pos", action="store_true", help="Attach POS info to words")
     return parser.parse_args(argv)
 
 
@@ -111,6 +174,9 @@ def main(argv=None) -> int:
     args = _parse_args(argv)
     include_chars = not args.words_only
     include_words = not args.chars_only
+    if not include_chars and not include_words:
+        print("No output type selected. Use --chars-only or --words-only")
+        return 1
 
     profiles = build_chinese_frequency_profiles(
         Path(args.corpus_dir),
@@ -118,6 +184,7 @@ def main(argv=None) -> int:
         top=max(0, args.top),
         include_chars=include_chars,
         include_words=include_words,
+        with_pos=args.with_pos,
     )
 
     if include_chars:
@@ -126,9 +193,8 @@ def main(argv=None) -> int:
         _write_jsonl(Path(args.output_words), profiles["words"])
 
     print(
-        f"Computed {len(profiles['chars'])} chars and {len(profiles['words'])} words"
-        if args.words_only is False or args.chars_only is False
-        else "No data requested"
+        f"Computed {len(profiles['chars']) if include_chars else 0} chars and "
+        f"{len(profiles['words']) if include_words else 0} words"
     )
     return 0
 

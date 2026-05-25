@@ -91,6 +91,7 @@ python3 -m vocabulary_pipeline \
   --corpus-dir ~/haodoo \
   --output-chars results/zh-chars.jsonl \
   --output-words results/zh-words.jsonl \
+  --with-pos \
   --min-count 2 \
   --top 2000
 #+end_src
