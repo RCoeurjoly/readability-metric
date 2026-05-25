@@ -22,14 +22,48 @@ except Exception:  # pragma: no cover
     jieba_posseg = None
 
 
-def _iter_chinese_epub_texts(corpus_root: Path) -> Iterable[str]:
-    for path in readability_metric.iter_epub_files([str(corpus_root)]):
+def _iter_chinese_epub_texts(corpus_root: Path, verbose: bool = False) -> Iterable[str]:
+    epub_paths = list(readability_metric.iter_epub_files([str(corpus_root)]))
+    total = len(epub_paths)
+    if verbose:
+        print(f"Found {total} EPUB files in {corpus_root}")
+
+    if total == 0:
+        return
+
+    kept = 0
+    non_chinese = 0
+    read_failed = 0
+    for index, path in enumerate(epub_paths, start=1):
+        if verbose:
+            print(f"Scanning {index}/{total}: {path.name}")
+
         try:
             text = readability_metric.fallback_epub_text(str(path))
         except Exception:
+            read_failed += 1
+            if verbose:
+                print(f"  skipped (read failed): {path.name}")
             continue
+
         if readability_metric.detect_language_code(text).startswith("zh"):
+            kept += 1
+            if verbose:
+                print(f"  kept (Chinese): {path.name}")
             yield text
+        else:
+            non_chinese += 1
+            if verbose:
+                print(f"  skipped (non-Chinese): {path.name}")
+
+    if verbose:
+        print(
+            "Scanned "
+            f"{total} EPUB files: "
+            f"{kept} kept as Chinese, "
+            f"{non_chinese} non-Chinese, "
+            f"{read_failed} failed"
+        )
 
 
 def _character_tokens(text: str) -> Iterable[str]:
@@ -137,13 +171,14 @@ def build_chinese_frequency_profiles(
     include_phrases: bool = False,
     phrase_max_length: int = 3,
     with_pos: bool = False,
+    verbose: bool = False,
 ) -> Dict[str, List[dict]]:
     char_counter: Counter[str] = Counter()
     word_counter: Counter[str] = Counter()
     phrase_counter: Counter[str] = Counter()
     word_pos_counter: DefaultDict[str, Counter] = defaultdict(Counter)
 
-    for text in _iter_chinese_epub_texts(corpus_root):
+    for text in _iter_chinese_epub_texts(corpus_root, verbose=verbose):
         char_counter.update(_character_tokens(text))
         if with_pos:
             for word, raw_pos in _word_tokens_with_pos(text):
@@ -373,6 +408,7 @@ def _parse_args(argv=None):
     parser.add_argument("--output-phrases", default="results/chinese-phrases.jsonl")
     parser.add_argument("--top", type=int, default=0, help="Limit ranking output")
     parser.add_argument("--min-count", type=int, default=2)
+    parser.add_argument("--verbose", action="store_true", help="Print progress while scanning EPUB files")
     parser.add_argument("--chars-only", action="store_true", help="Only export character frequencies")
     parser.add_argument("--words-only", action="store_true", help="Only export word frequencies")
     parser.add_argument("--with-pos", action="store_true", help="Attach POS info to words")
@@ -411,6 +447,7 @@ def main(argv=None) -> int:
         include_phrases=include_phrases,
         phrase_max_length=max(2, args.phrase_max_length),
         with_pos=args.with_pos,
+        verbose=args.verbose,
     )
 
     if include_chars:

@@ -103,4 +103,4 @@ python3 -m vocabulary_pipeline \
   --allow-non-open
 #+end_src
 
-`--output-chars` and `--output-words` are independent. Use `--chars-only` or `--words-only` to restrict extraction. Add `--with-phrases` plus `--output-phrases` for multi-word phrases, and `--fetch-images` (with optional `--image-limit`) for open-license Wikimedia image lookups.
+`--output-chars` and `--output-words` are independent. Use `--chars-only` or `--words-only` to restrict extraction. Add `--with-phrases` plus `--output-phrases` for multi-word phrases, and `--fetch-images` (with optional `--image-limit`) for open-license Wikimedia image lookups. Add `--verbose` if you want per-EPUB progress and final counts like `Scanned N EPUB files: K kept as Chinese, X non-Chinese, Y failed`.
