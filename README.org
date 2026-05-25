@@ -1,9 +1,5 @@
 * readability-metric
 
-#+begin_note
-For this workspace, create a git commit for each change you make, then move to the next change.
-#+end_note
-
 Readability metrics for EPUB books.
 
 ** Nix usage
