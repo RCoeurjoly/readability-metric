@@ -38,6 +38,7 @@
             numpy
             pymongo
             scipy
+            jieba
           ];
 
           pythonImportsCheck = [
@@ -55,6 +56,7 @@
             numpy
             pymongo
             scipy
+            jieba
           ]
         );
       in

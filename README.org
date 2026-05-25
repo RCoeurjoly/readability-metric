@@ -81,3 +81,18 @@ Important defaults are exposed via CLI:
 - `known_ratio_with_introduced`: coverage after adding that stage’s new words
 
 This is a practical starter toward a zero-cognate path: you can use the generated HTML for listening-first reading by creating audio with the emitted TTS command, then un-hiding text gradually.
+
+* Vocabulary Frequency Pipeline
+
+Extract ranked Chinese characters and words from an EPUB corpus:
+
+#+begin_src shell
+python3 -m vocabulary_pipeline \
+  --corpus-dir ~/haodoo \
+  --output-chars results/zh-chars.jsonl \
+  --output-words results/zh-words.jsonl \
+  --min-count 2 \
+  --top 2000
+#+end_src
+
+`--output-chars` and `--output-words` are independent. Use `--chars-only` or `--words-only` to restrict extraction.

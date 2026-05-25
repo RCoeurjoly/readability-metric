@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
   "beautifulsoup4>=4.12",
   "EbookLib>=0.18",
+  "jieba>=0.42",
   "langdetect>=1.0.9",
   "lxml>=5.0",
   "numpy>=1.26",
@@ -20,6 +21,7 @@ dependencies = [
 [project.scripts]
 readability-metric = "readability_metric:main"
 story-pipeline = "story_pipeline:main"
+vocabulary-pipeline = "vocabulary_pipeline:main"
 
 [project.optional-dependencies]
 dev = [
@@ -31,7 +33,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["readability_metric", "corpus_analysis", "story_pipeline"]
+py-modules = ["readability_metric", "corpus_analysis", "story_pipeline", "vocabulary_pipeline"]
 
 [tool.ruff]
 line-length = 100
