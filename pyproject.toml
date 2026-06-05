@@ -25,6 +25,7 @@ vocabulary-pipeline = "vocabulary_pipeline:main"
 vocabulary-quiz = "vocabulary_quiz:main"
 book-recommendations = "book_recommendations:main"
 book-tags = "book_tags:main"
+palindromic-words = "palindromic_words:main"
 
 [project.optional-dependencies]
 dev = [
@@ -36,7 +37,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["readability_metric", "corpus_analysis", "story_pipeline", "vocabulary_pipeline", "vocabulary_quiz", "book_recommendations", "book_tags"]
+py-modules = ["readability_metric", "corpus_analysis", "story_pipeline", "vocabulary_pipeline", "vocabulary_quiz", "book_recommendations", "book_tags", "palindromic_words"]
 
 [tool.ruff]
 line-length = 100
