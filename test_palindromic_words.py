@@ -15,6 +15,16 @@ def test_find_palindromes_filters_two_character_repeats():
     assert list(palindromic_words.find_palindromes(words)) == ["是不是", "上海自来水来自海上"]
 
 
+def test_find_palindromes_can_filter_by_max_length():
+    words = ["是不是", "不得不", "上海自来水来自海上", "笑了笑"]
+
+    assert list(palindromic_words.find_palindromes(words, max_length=3)) == [
+        "是不是",
+        "不得不",
+        "笑了笑",
+    ]
+
+
 def test_find_palindromes_can_filter_unique_words():
     words = ["Level", "level", "noon", "Noon"]
 

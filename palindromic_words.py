@@ -26,6 +26,7 @@ def find_palindromes(
     *,
     case_sensitive: bool = False,
     min_length: int = 2,
+    max_length: int | None = None,
     unique: bool = False,
 ) -> Iterator[str]:
     """Yield palindromic words from an iterable of words."""
@@ -34,6 +35,7 @@ def find_palindromes(
     for word in words:
         if (
             len(word) < min_length
+            or (max_length is not None and len(word) > max_length)
             or is_two_character_repeat(word)
             or not is_palindrome(word, case_sensitive=case_sensitive)
         ):
@@ -92,6 +94,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Minimum word length to include. Defaults to 2.",
     )
     parser.add_argument(
+        "--max-length",
+        type=int,
+        default=None,
+        help="Maximum word length to include. Defaults to no upper limit.",
+    )
+    parser.add_argument(
         "--unique",
         action="store_true",
         help="Print each palindrome once, preserving the first spelling seen.",
@@ -110,6 +118,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.min_length < 1:
         raise SystemExit("--min-length must be at least 1")
 
+    if args.max_length is not None and args.max_length < args.min_length:
+        raise SystemExit(
+            f"--max-length must be greater than or equal to --min-length ({args.min_length})"
+        )
+
     if args.word_file is None:
         words = read_words(sys.stdin, jsonl_field=args.jsonl_field)
     else:
@@ -122,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         words,
         case_sensitive=args.case_sensitive,
         min_length=args.min_length,
+        max_length=args.max_length,
         unique=args.unique,
     ):
         print(word)
