@@ -184,5 +184,143 @@ class VocabularyPipelineTest(unittest.TestCase):
             self.assertEqual(word_rows[0]["count"], 2)
 
 
+    def test_write_per_book_profiles_and_merges_corpus_outputs(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            output = Path(tempdir) / "output"
+            books = output / "books"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "测试", "en", "小猫小猫吃饭")
+
+            output_chars = output / "chars.jsonl"
+            output_words = output / "words.jsonl"
+
+            with patch("vocabulary_pipeline._word_tokens", return_value=["小猫", "小猫", "吃饭"]):
+                result = vp.main(
+                    [
+                        "--corpus-dir",
+                        str(corpus_root),
+                        "--output-books",
+                        str(books),
+                        "--output-chars",
+                        str(output_chars),
+                        "--output-words",
+                        str(output_words),
+                        "--min-count",
+                        "1",
+                        "--min-cjk-chars",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            manifest_rows = [json.loads(line) for line in (books / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(manifest_rows), 1)
+            self.assertTrue(manifest_rows[0]["included"])
+            self.assertEqual(manifest_rows[0]["original_language"], "en")
+
+            book_dir = Path(manifest_rows[0]["book_dir"])
+            self.assertTrue((book_dir / "book.json").exists())
+            self.assertTrue((book_dir / "chars.jsonl").exists())
+            self.assertTrue((book_dir / "words.jsonl").exists())
+
+            book_word_rows = [json.loads(line) for line in (book_dir / "words.jsonl").read_text(encoding="utf-8").splitlines()]
+            corpus_word_rows = [json.loads(line) for line in output_words.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(book_word_rows[0]["item"], "小猫")
+            self.assertEqual(book_word_rows[0]["count"], 2)
+            self.assertEqual(corpus_word_rows[0]["item"], "小猫")
+            self.assertEqual(corpus_word_rows[0]["count"], 2)
+
+    def test_merge_manifest_reranks_combined_counts(self):
+        with TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            book_a = root / "a"
+            book_b = root / "b"
+            book_a.mkdir()
+            book_b.mkdir()
+            vp._write_jsonl(
+                book_a / "chars.jsonl",
+                [
+                    {"unit": "char", "item": "猫", "count": 2, "rank": 1, "cumulative_count": 2, "coverage": 2 / 3},
+                    {"unit": "char", "item": "狗", "count": 1, "rank": 2, "cumulative_count": 3, "coverage": 1.0},
+                ],
+            )
+            vp._write_jsonl(
+                book_b / "chars.jsonl",
+                [{"unit": "char", "item": "狗", "count": 3, "rank": 1, "cumulative_count": 3, "coverage": 1.0}],
+            )
+            vp._write_jsonl(book_a / "words.jsonl", [{"unit": "word", "item": "小猫", "count": 1, "rank": 1, "cumulative_count": 1, "coverage": 1.0}])
+            vp._write_jsonl(book_b / "words.jsonl", [{"unit": "word", "item": "小狗", "count": 2, "rank": 1, "cumulative_count": 2, "coverage": 1.0}])
+            manifest = root / "manifest.jsonl"
+            manifest.write_text(
+                json.dumps({"book_dir": str(book_a)}, ensure_ascii=False) + "\n"
+                + json.dumps({"book_dir": str(book_b)}, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            output_chars = root / "merged-chars.jsonl"
+            output_words = root / "merged-words.jsonl"
+
+            result = vp.main(
+                [
+                    "--merge-manifest",
+                    str(manifest),
+                    "--output-chars",
+                    str(output_chars),
+                    "--output-words",
+                    str(output_words),
+                    "--min-count",
+                    "1",
+                ]
+            )
+
+            self.assertEqual(result, 0)
+            char_rows = [json.loads(line) for line in output_chars.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(char_rows[0]["item"], "狗")
+            self.assertEqual(char_rows[0]["count"], 4)
+            self.assertEqual(char_rows[0]["rank"], 1)
+            self.assertEqual(char_rows[1]["item"], "猫")
+            self.assertEqual(char_rows[1]["cumulative_count"], 6)
+
+    def test_per_book_profiles_skip_low_cjk_text(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            books = Path(tempdir) / "books"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "English", "en", "abc 小")
+
+            included_dirs = vp.build_book_frequency_profiles(
+                corpus_root,
+                books,
+                min_count=1,
+                min_cjk_chars=2,
+            )
+
+            self.assertEqual(included_dirs, [])
+            manifest_rows = [json.loads(line) for line in (books / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertFalse(manifest_rows[0]["included"])
+            self.assertFalse((Path(manifest_rows[0]["book_dir"]) / "chars.jsonl").exists())
+
+
+    def test_zh_metadata_uses_lower_cjk_threshold(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            books = Path(tempdir) / "books"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "测试", "zh", "小")
+
+            included_dirs = vp.build_book_frequency_profiles(
+                corpus_root,
+                books,
+                min_count=1,
+                min_cjk_chars=100,
+            )
+
+            self.assertEqual(len(included_dirs), 1)
+            manifest_rows = [json.loads(line) for line in (books / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertTrue(manifest_rows[0]["included"])
+            self.assertEqual(manifest_rows[0]["required_cjk_character_count"], 1)
+            self.assertTrue((included_dirs[0] / "chars.jsonl").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

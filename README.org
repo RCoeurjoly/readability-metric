@@ -104,3 +104,60 @@ python3 -m vocabulary_pipeline \
 #+end_src
 
 `--output-chars` and `--output-words` are independent. Use `--chars-only` or `--words-only` to restrict extraction. Add `--with-phrases` plus `--output-phrases` for multi-word phrases, and `--fetch-images` (with optional `--image-limit`) for open-license Wikimedia image lookups. Add `--verbose` if you want per-EPUB progress and final counts like `Scanned N EPUB files: K kept as Chinese, X non-Chinese, Y failed`.
+
+Create per-book profiles first, then merge them into corpus-wide rankings:
+
+#+begin_src shell
+python3 -m vocabulary_pipeline \
+  --corpus-dir ~/haodoo \
+  --output-books results/zh-books \
+  --output-chars results/zh-chars.jsonl \
+  --output-words results/zh-words.jsonl \
+  --min-count 1 \
+  --min-cjk-chars 100 \
+  --jobs 4 \
+  --verbose
+#+end_src
+
+Each included book gets `chars.jsonl`, `words.jsonl`, and `book.json` under `results/zh-books/<book-id>/`. The per-book JSONL files use the same schema as the corpus-wide ranking files, so they can be merged into mini-corpora:
+
+#+begin_src shell
+python3 -m vocabulary_pipeline \
+  --merge-manifest results/my-series.jsonl \
+  --output-chars results/my-series-chars.jsonl \
+  --output-words results/my-series-words.jsonl \
+  --min-count 1
+#+end_src
+
+A merge manifest is JSON Lines with one selected book per line, for example `{"book_dir":"results/zh-books/1179-abc123def0"}`. To scope a quiz to a single book or mini-corpus, pass those ranking files to `vocabulary_quiz` with `--chars` and `--words`.
+
+Quiz yourself against the ranked character and word lists:
+
+#+begin_src shell
+python3 -m vocabulary_quiz --unit both --chars results/zh-chars.jsonl --words results/zh-words.jsonl
+#+end_src
+
+The quiz asks whether you know progressively harder characters or words, then binary-refines around your current level. Use `--unit char` or `--unit word` to test only one list, and `--max-questions` to change the default 30-question cap.
+
+Build book recommendations from your learner profile and per-book profiles:
+
+#+begin_src shell
+python3 -m book_recommendations \
+  --manifest results/zh-books/manifest.jsonl \
+  --learner-profile results/learner-profile.json \
+  --output results/book-recommendations.jsonl
+#+end_src
+
+The output is sorted by known word coverage first, then known character coverage. Each row includes total/unknown token counts and the most frequent unknown characters and words for that book.
+
+Tag books that appear in the 20th-century Chinese novel top-100 list:
+
+#+begin_src shell
+python3 -m book_tags \
+  --manifest results/zh-books/manifest.jsonl \
+  --ranking-json-dir results/book-ranking-lists/book_rankings_json \
+  --output results/book-tags.jsonl \
+  --catalog-output results/book-tag-catalog.json
+#+end_src
+
+The tag output is separate from `book.json` so external rankings stay auditable and can be regenerated without rewriting per-book profile folders. `--ranking-json-dir` adds downloaded ranking JSON files; omit it to tag only the built-in 20th-century Chinese novel top-100 list.

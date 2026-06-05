@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import hashlib
 import html
 import json
 import urllib.error
@@ -218,6 +220,235 @@ def build_chinese_frequency_profiles(
 
 
 
+
+def _book_id(path: Path) -> str:
+    digest = hashlib.sha1(str(path).encode("utf-8")).hexdigest()[:10]
+    return f"{path.stem}-{digest}"
+
+
+def _book_metadata(path: Path, text: str, book_id: str, included: bool, reason: str | None = None) -> dict:
+    metadata: Dict[str, Any] = {}
+    try:
+        metadata = readability_metric.fallback_epub_metadata(str(path))
+    except Exception:
+        metadata = {}
+    detected_language = readability_metric.detect_language_code(text) if text else "unknown"
+    record = {
+        "filepath": str(path),
+        "filename": path.name,
+        "book_id": book_id,
+        "title": metadata.get("title"),
+        "creator": metadata.get("creator"),
+        "original_language": metadata.get("original_language") or metadata.get("language"),
+        "detected_language": detected_language,
+        "cjk_character_count": len(list(_character_tokens(text))),
+        "included": included,
+        "chars_profile": "chars.jsonl" if included else None,
+        "words_profile": "words.jsonl" if included else None,
+    }
+    if reason:
+        record["reason"] = reason
+    return record
+
+
+def build_chinese_frequency_profile_from_text(
+    text: str,
+    min_count: int = 2,
+    top: int = 0,
+    include_chars: bool = True,
+    include_words: bool = True,
+) -> Dict[str, List[dict]]:
+    char_counter: Counter[str] = Counter()
+    word_counter: Counter[str] = Counter()
+    if include_chars:
+        char_counter.update(_character_tokens(text))
+    if include_words:
+        word_counter.update(_word_tokens(text))
+    return {
+        "chars": _to_ranked_entries(char_counter, "char", top=top, min_count=min_count) if include_chars else [],
+        "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count) if include_words else [],
+    }
+
+
+def write_book_frequency_profile(
+    epub_path: Path,
+    output_books_dir: Path,
+    min_count: int = 1,
+    top: int = 0,
+    include_chars: bool = True,
+    include_words: bool = True,
+    min_cjk_chars: int = 100,
+    verbose: bool = False,
+) -> dict:
+    path = Path(epub_path)
+    book_id = _book_id(path)
+    book_dir = output_books_dir / book_id
+    book_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        text = readability_metric.fallback_epub_text(str(path))
+    except Exception as error:
+        record = _book_metadata(path, "", book_id, included=False, reason="read failed")
+        record["error_type"] = type(error).__name__
+        record["error"] = str(error)
+        (book_dir / "book.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+        if verbose:
+            print(f"  skipped (read failed): {path.name}")
+        return record
+
+    cjk_count = len(list(_character_tokens(text)))
+    metadata = {}
+    try:
+        metadata = readability_metric.fallback_epub_metadata(str(path))
+    except Exception:
+        metadata = {}
+    original_language = metadata.get("original_language") or metadata.get("language")
+    required_cjk_chars = 1 if readability_metric.is_chinese_language(original_language) else min_cjk_chars
+    included = cjk_count >= required_cjk_chars
+    reason = None if included else f"fewer than {required_cjk_chars} CJK characters"
+    record = _book_metadata(path, text, book_id, included=included, reason=reason)
+    record["required_cjk_character_count"] = required_cjk_chars
+    if included:
+        record["chars_profile"] = "chars.jsonl" if include_chars else None
+        record["words_profile"] = "words.jsonl" if include_words else None
+        profiles = build_chinese_frequency_profile_from_text(
+            text,
+            min_count=min_count,
+            top=top,
+            include_chars=include_chars,
+            include_words=include_words,
+        )
+        if include_chars:
+            _write_jsonl(book_dir / "chars.jsonl", profiles["chars"])
+        if include_words:
+            _write_jsonl(book_dir / "words.jsonl", profiles["words"])
+        if verbose:
+            print(f"  kept (CJK chars={cjk_count}): {path.name}")
+    elif verbose:
+        print(f"  skipped (CJK chars={cjk_count}): {path.name}")
+
+    (book_dir / "book.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    return record
+
+
+def read_profile_counts(path: Path) -> Counter:
+    counter: Counter[str] = Counter()
+    if not path.exists():
+        return counter
+    with path.open(encoding="utf-8") as profile:
+        for line in profile:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            counter[str(row["item"])] += int(row["count"])
+    return counter
+
+
+def merge_profile_counts(book_dirs: Sequence[Path], unit: str) -> Counter:
+    filename = "chars.jsonl" if unit == "char" else "words.jsonl"
+    aggregate: Counter[str] = Counter()
+    for book_dir in book_dirs:
+        aggregate.update(read_profile_counts(Path(book_dir) / filename))
+    return aggregate
+
+
+def write_merged_profiles(
+    book_dirs: Sequence[Path],
+    output_chars: Path,
+    output_words: Path,
+    min_count: int = 1,
+    top: int = 0,
+    include_chars: bool = True,
+    include_words: bool = True,
+) -> Dict[str, List[dict]]:
+    profiles = {"chars": [], "words": []}
+    if include_chars:
+        profiles["chars"] = _to_ranked_entries(merge_profile_counts(book_dirs, "char"), "char", top=top, min_count=min_count)
+        _write_jsonl(output_chars, profiles["chars"])
+    if include_words:
+        profiles["words"] = _to_ranked_entries(merge_profile_counts(book_dirs, "word"), "word", top=top, min_count=min_count)
+        _write_jsonl(output_words, profiles["words"])
+    return profiles
+
+
+def _book_dirs_from_manifest(path: Path) -> List[Path]:
+    book_dirs: List[Path] = []
+    with path.open(encoding="utf-8") as manifest:
+        for line_number, line in enumerate(manifest, start=1):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            book_dir = row.get("book_dir")
+            if not book_dir:
+                raise ValueError(f"{path}:{line_number}: missing book_dir")
+            book_dirs.append(Path(book_dir))
+    return book_dirs
+
+
+def build_book_frequency_profiles(
+    corpus_root: Path,
+    output_books_dir: Path,
+    min_count: int = 1,
+    top: int = 0,
+    include_chars: bool = True,
+    include_words: bool = True,
+    min_cjk_chars: int = 100,
+    jobs: int = 1,
+    verbose: bool = False,
+) -> List[Path]:
+    epub_paths = list(readability_metric.iter_epub_files([str(corpus_root)]))
+    if verbose:
+        print(f"Found {len(epub_paths)} EPUB files in {corpus_root}")
+
+    records: List[dict] = []
+    if jobs > 1 and len(epub_paths) > 1:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=jobs) as executor:
+            futures = [
+                executor.submit(
+                    write_book_frequency_profile,
+                    path,
+                    output_books_dir,
+                    min_count,
+                    top,
+                    include_chars,
+                    include_words,
+                    min_cjk_chars,
+                    verbose,
+                )
+                for path in epub_paths
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                records.append(future.result())
+    else:
+        for index, path in enumerate(epub_paths, start=1):
+            if verbose:
+                print(f"Scanning {index}/{len(epub_paths)}: {path.name}")
+            records.append(
+                write_book_frequency_profile(
+                    path,
+                    output_books_dir,
+                    min_count=min_count,
+                    top=top,
+                    include_chars=include_chars,
+                    include_words=include_words,
+                    min_cjk_chars=min_cjk_chars,
+                    verbose=verbose,
+                )
+            )
+
+    manifest_path = output_books_dir / "manifest.jsonl"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    records.sort(key=lambda row: row.get("filepath") or "")
+    with manifest_path.open("w", encoding="utf-8") as manifest:
+        for record in records:
+            book_dir = output_books_dir / str(record["book_id"])
+            manifest.write(json.dumps({**record, "book_dir": str(book_dir)}, ensure_ascii=False) + "\n")
+
+    included_dirs = [output_books_dir / str(record["book_id"]) for record in records if record.get("included")]
+    if verbose:
+        skipped = len(records) - len(included_dirs)
+        print(f"Scanned {len(records)} EPUB files: {len(included_dirs)} kept as CJK, {skipped} skipped")
+    return included_dirs
+
 def _strip_html_markup(value: str) -> str:
     cleaned = html.unescape(value)
     cleaned = cleaned.replace("<br>", " ")
@@ -402,12 +633,16 @@ def _write_jsonl(path: Path, rows: Sequence[dict]) -> None:
 
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Extract ranked Chinese chars and words from EPUB corpora.")
-    parser.add_argument("--corpus-dir", required=True, help="Directory containing EPUB files")
+    parser.add_argument("--corpus-dir", help="Directory containing EPUB files")
     parser.add_argument("--output-chars", default="results/chinese-chars.jsonl")
     parser.add_argument("--output-words", default="results/chinese-words.jsonl")
     parser.add_argument("--output-phrases", default="results/chinese-phrases.jsonl")
     parser.add_argument("--top", type=int, default=0, help="Limit ranking output")
     parser.add_argument("--min-count", type=int, default=2)
+    parser.add_argument("--output-books", help="Directory for per-book frequency profiles")
+    parser.add_argument("--merge-manifest", help="JSONL manifest of per-book profile directories to merge")
+    parser.add_argument("--min-cjk-chars", type=int, default=100, help="Minimum CJK character count for per-book profile inclusion")
+    parser.add_argument("--jobs", type=int, default=1, help="Parallel workers for per-book extraction")
     parser.add_argument("--verbose", action="store_true", help="Print progress while scanning EPUB files")
     parser.add_argument("--chars-only", action="store_true", help="Only export character frequencies")
     parser.add_argument("--words-only", action="store_true", help="Only export word frequencies")
@@ -437,31 +672,85 @@ def main(argv=None) -> int:
         print("No output type selected. Use --chars-only or --words-only")
         return 1
 
+    min_count = max(1, args.min_count)
+    top = max(0, args.top)
     include_phrases = bool(args.with_phrases)
-    profiles = build_chinese_frequency_profiles(
-        Path(args.corpus_dir),
-        min_count=max(1, args.min_count),
-        top=max(0, args.top),
-        include_chars=include_chars,
-        include_words=include_words,
-        include_phrases=include_phrases,
-        phrase_max_length=max(2, args.phrase_max_length),
-        with_pos=args.with_pos,
-        verbose=args.verbose,
-    )
 
-    if include_chars:
-        _write_jsonl(Path(args.output_chars), profiles["chars"])
-    if include_words:
-        _write_jsonl(Path(args.output_words), profiles["words"])
-    if include_phrases and args.output_phrases:
-        _write_jsonl(Path(args.output_phrases), profiles["phrases"])
+    if args.merge_manifest:
+        book_dirs = _book_dirs_from_manifest(Path(args.merge_manifest))
+        profiles = write_merged_profiles(
+            book_dirs,
+            Path(args.output_chars),
+            Path(args.output_words),
+            min_count=min_count,
+            top=top,
+            include_chars=include_chars,
+            include_words=include_words,
+        )
+        print(
+            f"Merged {len(book_dirs)} book profiles into "
+            f"{len(profiles['chars']) if include_chars else 0} chars, "
+            f"{len(profiles['words']) if include_words else 0} words"
+        )
+    elif args.output_books:
+        if not args.corpus_dir:
+            print("--output-books requires --corpus-dir")
+            return 1
+        book_dirs = build_book_frequency_profiles(
+            Path(args.corpus_dir),
+            Path(args.output_books),
+            min_count=min_count,
+            top=top,
+            include_chars=include_chars,
+            include_words=include_words,
+            min_cjk_chars=max(1, args.min_cjk_chars),
+            jobs=max(1, args.jobs),
+            verbose=args.verbose,
+        )
+        profiles = write_merged_profiles(
+            book_dirs,
+            Path(args.output_chars),
+            Path(args.output_words),
+            min_count=min_count,
+            top=top,
+            include_chars=include_chars,
+            include_words=include_words,
+        )
+        if include_phrases:
+            print("--with-phrases is ignored when --output-books is used")
+        print(
+            f"Computed {len(profiles['chars']) if include_chars else 0} chars, "
+            f"{len(profiles['words']) if include_words else 0} words "
+            f"from {len(book_dirs)} book profiles"
+        )
+    else:
+        if not args.corpus_dir:
+            print("provide --corpus-dir or --merge-manifest")
+            return 1
+        profiles = build_chinese_frequency_profiles(
+            Path(args.corpus_dir),
+            min_count=min_count,
+            top=top,
+            include_chars=include_chars,
+            include_words=include_words,
+            include_phrases=include_phrases,
+            phrase_max_length=max(2, args.phrase_max_length),
+            with_pos=args.with_pos,
+            verbose=args.verbose,
+        )
 
-    print(
-        f"Computed {len(profiles['chars']) if include_chars else 0} chars, "
-        f"{len(profiles['words']) if include_words else 0} words, "
-        f"{len(profiles['phrases']) if include_phrases else 0} phrases"
-    )
+        if include_chars:
+            _write_jsonl(Path(args.output_chars), profiles["chars"])
+        if include_words:
+            _write_jsonl(Path(args.output_words), profiles["words"])
+        if include_phrases and args.output_phrases:
+            _write_jsonl(Path(args.output_phrases), profiles["phrases"])
+
+        print(
+            f"Computed {len(profiles['chars']) if include_chars else 0} chars, "
+            f"{len(profiles['words']) if include_words else 0} words, "
+            f"{len(profiles['phrases']) if include_phrases else 0} phrases"
+        )
 
     if args.fetch_images:
         image_items = _filtered_items(profiles, args.image_unit_filter)
