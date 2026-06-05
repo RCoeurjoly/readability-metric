@@ -9,6 +9,12 @@ def test_find_palindromes_ignores_case_by_default():
     assert list(palindromic_words.find_palindromes(words)) == ["Level", "Radar", "noon"]
 
 
+def test_find_palindromes_filters_two_character_repeats():
+    words = ["看看", "是不是", "太太", "上海自来水来自海上"]
+
+    assert list(palindromic_words.find_palindromes(words)) == ["是不是", "上海自来水来自海上"]
+
+
 def test_find_palindromes_can_filter_unique_words():
     words = ["Level", "level", "noon", "Noon"]
 

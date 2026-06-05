@@ -16,6 +16,11 @@ def is_palindrome(word: str, *, case_sensitive: bool = False) -> bool:
     return comparable == comparable[::-1]
 
 
+def is_two_character_repeat(word: str) -> bool:
+    """Return True for two-character words made from the same character."""
+    return len(word) == 2 and word[0] == word[1]
+
+
 def find_palindromes(
     words: Iterable[str],
     *,
@@ -27,7 +32,11 @@ def find_palindromes(
     seen: set[str] = set()
 
     for word in words:
-        if len(word) < min_length or not is_palindrome(word, case_sensitive=case_sensitive):
+        if (
+            len(word) < min_length
+            or is_two_character_repeat(word)
+            or not is_palindrome(word, case_sensitive=case_sensitive)
+        ):
             continue
 
         key = word if case_sensitive else word.casefold()
