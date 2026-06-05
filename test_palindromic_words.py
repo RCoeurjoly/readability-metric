@@ -28,3 +28,15 @@ def test_read_words_splits_whitespace():
     stream = StringIO("level book\nradar\tcivic")
 
     assert list(palindromic_words.read_words(stream)) == ["level", "book", "radar", "civic"]
+
+
+def test_read_words_extracts_items_from_jsonl():
+    stream = StringIO('{"item": "上海自来水来自海上", "count": 3}\n{"item": "book"}\n')
+
+    assert list(palindromic_words.read_words(stream)) == ["上海自来水来自海上", "book"]
+
+
+def test_read_words_can_use_custom_jsonl_field():
+    stream = StringIO('{"word": "radar"}\n')
+
+    assert list(palindromic_words.read_words(stream, jsonl_field="word")) == ["radar"]

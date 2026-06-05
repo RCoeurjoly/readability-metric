@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -37,10 +38,29 @@ def find_palindromes(
         yield word
 
 
-def read_words(stream: TextIO) -> Iterator[str]:
-    """Yield whitespace-separated words from a text stream."""
-    for line in stream:
-        yield from line.split()
+def read_words(stream: TextIO, *, jsonl_field: str = "item") -> Iterator[str]:
+    """Yield words from plain text or JSONL records."""
+    for line_number, line in enumerate(stream, start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.startswith("{"):
+            try:
+                record = json.loads(stripped)
+            except json.JSONDecodeError as error:
+                raise ValueError(f"invalid JSON on line {line_number}: {error.msg}") from error
+
+            try:
+                word = record[jsonl_field]
+            except KeyError as error:
+                raise ValueError(f"missing JSONL field {jsonl_field!r} on line {line_number}") from error
+
+            if isinstance(word, str):
+                yield word
+            continue
+
+        yield from stripped.split()
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -67,6 +87,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Print each palindrome once, preserving the first spelling seen.",
     )
+    parser.add_argument(
+        "--jsonl-field",
+        default="item",
+        help="Field to read from JSONL records. Defaults to item.",
+    )
     return parser.parse_args(argv)
 
 
@@ -77,9 +102,12 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--min-length must be at least 1")
 
     if args.word_file is None:
-        words = read_words(sys.stdin)
+        words = read_words(sys.stdin, jsonl_field=args.jsonl_field)
     else:
-        words = read_words(args.word_file.open(encoding="utf-8"))
+        words = read_words(
+            args.word_file.open(encoding="utf-8"),
+            jsonl_field=args.jsonl_field,
+        )
 
     for word in find_palindromes(
         words,
