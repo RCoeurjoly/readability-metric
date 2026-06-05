@@ -1,4 +1,4 @@
-"""Find palindromic words in a word list."""
+"""Find word pairs where one word is the reverse of another."""
 
 from __future__ import annotations
 
@@ -10,43 +10,47 @@ from pathlib import Path
 from typing import TextIO
 
 
-def is_palindrome(word: str, *, case_sensitive: bool = False) -> bool:
-    """Return True when word reads the same forwards and backwards."""
-    comparable = word if case_sensitive else word.casefold()
-    return comparable == comparable[::-1]
-
-
 def is_two_character_repeat(word: str) -> bool:
     """Return True for two-character words made from the same character."""
     return len(word) == 2 and word[0] == word[1]
 
 
-def find_palindromes(
+def normalize_word(word: str, *, case_sensitive: bool = False) -> str:
+    """Return the comparison form for a word."""
+    return word if case_sensitive else word.casefold()
+
+
+def find_mirror_pairs(
     words: Iterable[str],
     *,
     case_sensitive: bool = False,
     min_length: int = 2,
     max_length: int | None = None,
-    unique: bool = False,
-) -> Iterator[str]:
-    """Yield palindromic words from an iterable of words."""
-    seen: set[str] = set()
+) -> Iterator[tuple[str, str]]:
+    """Yield pairs where the second word is the reverse of the first."""
+    words_by_key: dict[str, str] = {}
+    yielded: set[frozenset[str]] = set()
 
     for word in words:
         if (
             len(word) < min_length
             or (max_length is not None and len(word) > max_length)
             or is_two_character_repeat(word)
-            or not is_palindrome(word, case_sensitive=case_sensitive)
         ):
             continue
 
-        key = word if case_sensitive else word.casefold()
-        if unique and key in seen:
+        key = normalize_word(word, case_sensitive=case_sensitive)
+        reverse_key = key[::-1]
+        if key == reverse_key:
             continue
 
-        seen.add(key)
-        yield word
+        if reverse_key in words_by_key:
+            pair_key = frozenset((key, reverse_key))
+            if pair_key not in yielded:
+                yielded.add(pair_key)
+                yield words_by_key[reverse_key], word
+
+        words_by_key.setdefault(key, word)
 
 
 def read_words(stream: TextIO, *, jsonl_field: str = "item") -> Iterator[str]:
@@ -102,7 +106,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--unique",
         action="store_true",
-        help="Print each palindrome once, preserving the first spelling seen.",
+        help="Deprecated; mirror pairs are always printed once.",
     )
     parser.add_argument(
         "--jsonl-field",
@@ -131,14 +135,13 @@ def main(argv: list[str] | None = None) -> int:
             jsonl_field=args.jsonl_field,
         )
 
-    for word in find_palindromes(
+    for word, reverse_word in find_mirror_pairs(
         words,
         case_sensitive=args.case_sensitive,
         min_length=args.min_length,
         max_length=args.max_length,
-        unique=args.unique,
     ):
-        print(word)
+        print(f"{word}\t{reverse_word}")
 
     return 0
 

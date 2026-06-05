@@ -3,40 +3,26 @@ from io import StringIO
 import palindromic_words
 
 
-def test_find_palindromes_ignores_case_by_default():
-    words = ["Level", "book", "Radar", "python", "noon"]
+def test_find_mirror_pairs_detects_reversed_words_once():
+    words = ["家人", "book", "人家", "看看", "人家"]
 
-    assert list(palindromic_words.find_palindromes(words)) == ["Level", "Radar", "noon"]
-
-
-def test_find_palindromes_filters_two_character_repeats():
-    words = ["看看", "是不是", "太太", "上海自来水来自海上"]
-
-    assert list(palindromic_words.find_palindromes(words)) == ["是不是", "上海自来水来自海上"]
+    assert list(palindromic_words.find_mirror_pairs(words)) == [("家人", "人家")]
 
 
-def test_find_palindromes_can_filter_by_max_length():
-    words = ["是不是", "不得不", "上海自来水来自海上", "笑了笑"]
+def test_find_mirror_pairs_can_filter_by_max_length():
+    words = ["家人", "人家", "上海", "海上", "不得不"]
 
-    assert list(palindromic_words.find_palindromes(words, max_length=3)) == [
-        "是不是",
-        "不得不",
-        "笑了笑",
+    assert list(palindromic_words.find_mirror_pairs(words, max_length=2)) == [
+        ("家人", "人家"),
+        ("上海", "海上"),
     ]
 
 
-def test_find_palindromes_can_filter_unique_words():
-    words = ["Level", "level", "noon", "Noon"]
+def test_find_mirror_pairs_honors_case_sensitive_mode():
+    words = ["Ab", "ba", "aB"]
 
-    assert list(palindromic_words.find_palindromes(words, unique=True)) == ["Level", "noon"]
-
-
-def test_find_palindromes_honors_case_sensitive_mode():
-    words = ["Level", "level", "noon"]
-
-    assert list(palindromic_words.find_palindromes(words, case_sensitive=True)) == [
-        "level",
-        "noon",
+    assert list(palindromic_words.find_mirror_pairs(words, case_sensitive=True)) == [
+        ("ba", "aB")
     ]
 
 
