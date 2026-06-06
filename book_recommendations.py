@@ -14,8 +14,27 @@ DEFAULT_OUTPUT = "results/book-recommendations.jsonl"
 DEFAULT_TOP_UNKNOWN = 20
 
 
-def load_rank_map(path: Path, expected_unit: str) -> dict[str, int]:
+def _normalizer(mode: str):
+    if mode in {"", "none"}:
+        return None
+    try:
+        import opencc  # type: ignore
+    except Exception as error:  # pragma: no cover - depends on optional environment package.
+        raise RuntimeError("Character rank normalization requires the opencc Python package") from error
+
+    converter = opencc.OpenCC(mode)
+    return converter.convert
+
+
+def _put_min_rank(ranks: dict[str, int], item: str, rank: int) -> None:
+    existing = ranks.get(item)
+    if existing is None or rank < existing:
+        ranks[item] = rank
+
+
+def load_rank_map(path: Path, expected_unit: str, normalization: str = "none") -> dict[str, int]:
     ranks: dict[str, int] = {}
+    normalize = _normalizer(normalization)
     with path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
@@ -24,7 +43,11 @@ def load_rank_map(path: Path, expected_unit: str) -> dict[str, int]:
             unit = row.get("unit")
             if unit != expected_unit:
                 raise ValueError(f"{path}:{line_number}: expected unit {expected_unit!r}, got {unit!r}")
-            ranks[str(row["item"])] = int(row["rank"])
+            item = str(row["item"])
+            rank = int(row["rank"])
+            _put_min_rank(ranks, item, rank)
+            if normalize is not None:
+                _put_min_rank(ranks, normalize(item), rank)
     return ranks
 
 
@@ -169,6 +192,7 @@ def build_recommendations(
     limit: int = 0,
     tags_path: Path | None = None,
     ranked_only: bool = False,
+    character_normalization: str = "none",
 ) -> list[dict]:
     learner = load_profile(learner_profile_path)
     word_path = Path(learner["frequency_lists"]["words"])
@@ -178,7 +202,7 @@ def build_recommendations(
 
     char_rank_map = None
     if char_path_value and char_known_rank is not None:
-        char_rank_map = load_rank_map(Path(char_path_value), "char")
+        char_rank_map = load_rank_map(Path(char_path_value), "char", normalization=character_normalization)
         char_known_rank = int(char_known_rank)
     word_rank_map = load_rank_map(word_path, "word")
     tags_by_book = load_book_tags(tags_path)
@@ -228,6 +252,11 @@ def _parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=0, help="Limit output rows after ranking")
     parser.add_argument("--tags", help="Book tag JSONL file; matching tags are copied into recommendation rows")
     parser.add_argument("--ranked-only", action="store_true", help="Only recommend books present in --tags")
+    parser.add_argument(
+        "--character-normalization",
+        default="none",
+        help="OpenCC mode used to add character-rank aliases, e.g. t2s for Simplified subtitle profiles",
+    )
     return parser.parse_args(argv)
 
 
@@ -241,6 +270,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         limit=max(0, args.limit),
         tags_path=Path(args.tags) if args.tags else None,
         ranked_only=args.ranked_only,
+        character_normalization=args.character_normalization,
     )
     print(f"Wrote {len(recommendations)} recommendations to {args.output}")
     return 0

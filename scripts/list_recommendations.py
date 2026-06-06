@@ -14,6 +14,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--best", action="store_true", help="Show most comprehensible books")
     parser.add_argument("--limit", type=int, default=30)
     parser.add_argument("--exclude-caltrash", action="store_true")
+    parser.add_argument("--unit", choices=("word", "char"), default="word")
     return parser.parse_args()
 
 
@@ -26,14 +27,17 @@ def main() -> int:
     ]
     if args.exclude_caltrash:
         rows = [row for row in rows if "/.caltrash/" not in str(row.get("filepath") or "")]
-    rows.sort(key=lambda row: row["known_word_coverage"], reverse=args.best)
+    coverage_key = f"known_{args.unit}_coverage"
+    total_key = f"total_{args.unit}s"
+    label = f"{args.unit}s"
+    rows.sort(key=lambda row: row.get(coverage_key) or 0, reverse=args.best)
 
     for row in rows[: max(0, args.limit)]:
-        pct = row["known_word_coverage"] * 100
-        words = row["total_words"]
+        pct = (row.get(coverage_key) or 0) * 100
+        total = row.get(total_key) or 0
         title = row["title"] or ""
         creator = row.get("creator") or ""
-        print(f"{pct:6.2f}%  {words:>8,} words  {title} - {creator}")
+        print(f"{pct:6.2f}%  {total:>8,} {label}  {title} - {creator}")
     return 0
 
 

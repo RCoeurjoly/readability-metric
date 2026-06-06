@@ -139,6 +139,29 @@ class BookRecommendationsTest(unittest.TestCase):
             self.assertEqual(rows[0]["tags"][0]["list_id"], "canon")
 
 
+    def test_load_rank_map_can_add_opencc_aliases(self):
+        with TemporaryDirectory() as tempdir:
+            chars = Path(tempdir) / "chars.jsonl"
+            _write_jsonl(
+                chars,
+                [
+                    {
+                        "unit": "char",
+                        "item": "來",
+                        "count": 10,
+                        "rank": 7,
+                        "cumulative_count": 10,
+                        "coverage": 1.0,
+                    }
+                ],
+            )
+
+            ranks = br.load_rank_map(chars, "char", normalization="t2s")
+
+        self.assertEqual(ranks["來"], 7)
+        self.assertEqual(ranks["来"], 7)
+
+
 
 if __name__ == "__main__":
     unittest.main()
