@@ -7,4 +7,6 @@ env/
 test/
 dump/
 result
-results/
+results/*
+!results/snapshots/
+!results/snapshots/**
