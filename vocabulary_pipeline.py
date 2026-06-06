@@ -23,6 +23,13 @@ except Exception:  # pragma: no cover
     jieba = None
     jieba_posseg = None
 
+try:  # pragma: no cover - optional dependency for proper French tokenization.
+    import spacy  # type: ignore
+except Exception:  # pragma: no cover
+    spacy = None
+
+_FRENCH_NLP = None
+
 
 def _iter_chinese_epub_texts(corpus_root: Path, verbose: bool = False) -> Iterable[str]:
     epub_paths = list(readability_metric.iter_epub_files([str(corpus_root)]))
@@ -79,6 +86,24 @@ def _word_tokens(text: str) -> Iterable[str]:
     for token in jieba.lcut(text):
         if readability_metric.CJK_RE.search(token):
             yield token.strip()
+
+
+def _get_french_tokenizer():
+    global _FRENCH_NLP
+    if spacy is None:
+        raise RuntimeError("French tokenization requires spaCy. Install project dependencies first.")
+    if _FRENCH_NLP is None:
+        _FRENCH_NLP = spacy.blank("fr")
+        _FRENCH_NLP.max_length = max(_FRENCH_NLP.max_length, 20_000_000)
+    return _FRENCH_NLP
+
+
+def _french_word_tokens(text: str) -> Iterable[str]:
+    tokenizer = _get_french_tokenizer()
+    for token in tokenizer.make_doc(text or ""):
+        item = token.text.casefold().strip()
+        if item and any(char.isalpha() for char in item):
+            yield item
 
 
 def _coarse_pos(raw_pos: str) -> str:
@@ -141,6 +166,73 @@ def _to_ranked_entries(counter: Counter, unit: str, top: int, min_count: int) ->
         if top and len(entries) >= top:
             break
     return entries
+
+
+def _iter_language_epub_texts(
+    corpus_root: Path,
+    language: str,
+    verbose: bool = False,
+) -> Iterable[str]:
+    epub_paths = list(readability_metric.iter_epub_files([str(corpus_root)]))
+    total = len(epub_paths)
+    if verbose:
+        print(f"Found {total} EPUB files in {corpus_root}")
+
+    if total == 0:
+        return
+
+    kept = 0
+    skipped_language = 0
+    read_failed = 0
+    for index, path in enumerate(epub_paths, start=1):
+        if verbose:
+            print(f"Scanning {index}/{total}: {path.name}")
+
+        try:
+            text = readability_metric.fallback_epub_text(str(path))
+        except Exception:
+            read_failed += 1
+            if verbose:
+                print(f"  skipped (read failed): {path.name}")
+            continue
+
+        detected_language = readability_metric.normalize_language_code(
+            readability_metric.detect_language_code(text)
+        )
+        if detected_language == language:
+            kept += 1
+            if verbose:
+                print(f"  kept ({language}): {path.name}")
+            yield text
+        else:
+            skipped_language += 1
+            if verbose:
+                print(f"  skipped (detected {detected_language or 'unknown'}): {path.name}")
+
+    if verbose:
+        print(
+            "Scanned "
+            f"{total} EPUB files: "
+            f"{kept} kept as {language}, "
+            f"{skipped_language} other language, "
+            f"{read_failed} failed"
+        )
+
+
+def build_french_frequency_profiles(
+    corpus_root: Path,
+    min_count: int = 2,
+    top: int = 0,
+    verbose: bool = False,
+) -> Dict[str, List[dict]]:
+    word_counter: Counter[str] = Counter()
+    for text in _iter_language_epub_texts(corpus_root, "fr", verbose=verbose):
+        word_counter.update(_french_word_tokens(text))
+    return {
+        "chars": [],
+        "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count),
+        "phrases": [],
+    }
 
 
 def _extract_phrase_counts(text: str, max_len: int = 3) -> Counter:
@@ -226,7 +318,16 @@ def _book_id(path: Path) -> str:
     return f"{path.stem}-{digest}"
 
 
-def _book_metadata(path: Path, text: str, book_id: str, included: bool, reason: str | None = None) -> dict:
+def _book_metadata(
+    path: Path,
+    text: str,
+    book_id: str,
+    included: bool,
+    reason: str | None = None,
+    include_chars: bool = True,
+    include_words: bool = True,
+    language: str = "zh",
+) -> dict:
     metadata: Dict[str, Any] = {}
     try:
         metadata = readability_metric.fallback_epub_metadata(str(path))
@@ -241,10 +342,11 @@ def _book_metadata(path: Path, text: str, book_id: str, included: bool, reason: 
         "creator": metadata.get("creator"),
         "original_language": metadata.get("original_language") or metadata.get("language"),
         "detected_language": detected_language,
+        "language": language,
         "cjk_character_count": len(list(_character_tokens(text))),
         "included": included,
-        "chars_profile": "chars.jsonl" if included else None,
-        "words_profile": "words.jsonl" if included else None,
+        "chars_profile": "chars.jsonl" if included and include_chars else None,
+        "words_profile": "words.jsonl" if included and include_words else None,
     }
     if reason:
         record["reason"] = reason
@@ -270,6 +372,53 @@ def build_chinese_frequency_profile_from_text(
     }
 
 
+def build_french_frequency_profile_from_text(
+    text: str,
+    min_count: int = 2,
+    top: int = 0,
+    include_words: bool = True,
+) -> Dict[str, List[dict]]:
+    word_counter: Counter[str] = Counter()
+    if include_words:
+        word_counter.update(_french_word_tokens(text))
+    return {
+        "chars": [],
+        "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count) if include_words else [],
+    }
+
+
+def build_frequency_profile_from_text(
+    text: str,
+    language: str = "zh",
+    min_count: int = 2,
+    top: int = 0,
+    include_chars: bool = True,
+    include_words: bool = True,
+) -> Dict[str, List[dict]]:
+    if language == "fr":
+        return build_french_frequency_profile_from_text(
+            text,
+            min_count=min_count,
+            top=top,
+            include_words=include_words,
+        )
+    return build_chinese_frequency_profile_from_text(
+        text,
+        min_count=min_count,
+        top=top,
+        include_chars=include_chars,
+        include_words=include_words,
+    )
+
+
+def _language_matches(text: str, original_language: str | None, language: str) -> bool:
+    normalized_original = readability_metric.normalize_language_code(original_language)
+    if normalized_original == language:
+        return True
+    detected = readability_metric.normalize_language_code(readability_metric.detect_language_code(text))
+    return detected == language
+
+
 def write_book_frequency_profile(
     epub_path: Path,
     output_books_dir: Path,
@@ -279,15 +428,43 @@ def write_book_frequency_profile(
     include_words: bool = True,
     min_cjk_chars: int = 100,
     verbose: bool = False,
+    language: str = "zh",
 ) -> dict:
     path = Path(epub_path)
     book_id = _book_id(path)
     book_dir = output_books_dir / book_id
     book_dir.mkdir(parents=True, exist_ok=True)
+    book_metadata_path = book_dir / "book.json"
+    if book_metadata_path.exists():
+        try:
+            record = json.loads(book_metadata_path.read_text(encoding="utf-8"))
+            has_expected_outputs = (
+                not record.get("included")
+                or (
+                    (not include_chars or (book_dir / "chars.jsonl").exists())
+                    and (not include_words or (book_dir / "words.jsonl").exists())
+                )
+            )
+            if record.get("language") == language and has_expected_outputs:
+                if verbose:
+                    print(f"  reused ({language}): {path.name}")
+                return record
+        except Exception:
+            pass
+
     try:
         text = readability_metric.fallback_epub_text(str(path))
     except Exception as error:
-        record = _book_metadata(path, "", book_id, included=False, reason="read failed")
+        record = _book_metadata(
+            path,
+            "",
+            book_id,
+            included=False,
+            reason="read failed",
+            include_chars=include_chars,
+            include_words=include_words,
+            language=language,
+        )
         record["error_type"] = type(error).__name__
         record["error"] = str(error)
         (book_dir / "book.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -295,23 +472,39 @@ def write_book_frequency_profile(
             print(f"  skipped (read failed): {path.name}")
         return record
 
-    cjk_count = len(list(_character_tokens(text)))
     metadata = {}
     try:
         metadata = readability_metric.fallback_epub_metadata(str(path))
     except Exception:
         metadata = {}
     original_language = metadata.get("original_language") or metadata.get("language")
-    required_cjk_chars = 1 if readability_metric.is_chinese_language(original_language) else min_cjk_chars
-    included = cjk_count >= required_cjk_chars
-    reason = None if included else f"fewer than {required_cjk_chars} CJK characters"
-    record = _book_metadata(path, text, book_id, included=included, reason=reason)
-    record["required_cjk_character_count"] = required_cjk_chars
+
+    cjk_count = len(list(_character_tokens(text)))
+    required_cjk_chars = None
+    if language == "zh":
+        required_cjk_chars = 1 if readability_metric.is_chinese_language(original_language) else min_cjk_chars
+        included = cjk_count >= required_cjk_chars
+        reason = None if included else f"fewer than {required_cjk_chars} CJK characters"
+    else:
+        included = _language_matches(text, original_language, language)
+        reason = None if included else f"language is not {language}"
+
+    record = _book_metadata(
+        path,
+        text,
+        book_id,
+        included=included,
+        reason=reason,
+        include_chars=include_chars,
+        include_words=include_words,
+        language=language,
+    )
+    if required_cjk_chars is not None:
+        record["required_cjk_character_count"] = required_cjk_chars
     if included:
-        record["chars_profile"] = "chars.jsonl" if include_chars else None
-        record["words_profile"] = "words.jsonl" if include_words else None
-        profiles = build_chinese_frequency_profile_from_text(
+        profiles = build_frequency_profile_from_text(
             text,
+            language=language,
             min_count=min_count,
             top=top,
             include_chars=include_chars,
@@ -322,13 +515,18 @@ def write_book_frequency_profile(
         if include_words:
             _write_jsonl(book_dir / "words.jsonl", profiles["words"])
         if verbose:
-            print(f"  kept (CJK chars={cjk_count}): {path.name}")
+            if language == "zh":
+                print(f"  kept (CJK chars={cjk_count}): {path.name}")
+            else:
+                print(f"  kept ({language}): {path.name}")
     elif verbose:
-        print(f"  skipped (CJK chars={cjk_count}): {path.name}")
+        if language == "zh":
+            print(f"  skipped (CJK chars={cjk_count}): {path.name}")
+        else:
+            print(f"  skipped ({reason}): {path.name}")
 
     (book_dir / "book.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return record
-
 
 def read_profile_counts(path: Path) -> Counter:
     counter: Counter[str] = Counter()
@@ -394,6 +592,7 @@ def build_book_frequency_profiles(
     min_cjk_chars: int = 100,
     jobs: int = 1,
     verbose: bool = False,
+    language: str = "zh",
 ) -> List[Path]:
     epub_paths = list(readability_metric.iter_epub_files([str(corpus_root)]))
     if verbose:
@@ -413,6 +612,7 @@ def build_book_frequency_profiles(
                     include_words,
                     min_cjk_chars,
                     verbose,
+                    language,
                 )
                 for path in epub_paths
             ]
@@ -432,6 +632,7 @@ def build_book_frequency_profiles(
                     include_words=include_words,
                     min_cjk_chars=min_cjk_chars,
                     verbose=verbose,
+                    language=language,
                 )
             )
 
@@ -446,7 +647,7 @@ def build_book_frequency_profiles(
     included_dirs = [output_books_dir / str(record["book_id"]) for record in records if record.get("included")]
     if verbose:
         skipped = len(records) - len(included_dirs)
-        print(f"Scanned {len(records)} EPUB files: {len(included_dirs)} kept as CJK, {skipped} skipped")
+        print(f"Scanned {len(records)} EPUB files: {len(included_dirs)} kept as {language}, {skipped} skipped")
     return included_dirs
 
 def _strip_html_markup(value: str) -> str:
@@ -632,7 +833,8 @@ def _write_jsonl(path: Path, rows: Sequence[dict]) -> None:
 
 
 def _parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Extract ranked Chinese chars and words from EPUB corpora.")
+    parser = argparse.ArgumentParser(description="Extract ranked vocabulary profiles from EPUB corpora.")
+    parser.add_argument("--language", default="zh", choices=("zh", "fr"), help="Corpus language to process")
     parser.add_argument("--corpus-dir", help="Directory containing EPUB files")
     parser.add_argument("--output-chars", default="results/chinese-chars.jsonl")
     parser.add_argument("--output-words", default="results/chinese-words.jsonl")
@@ -666,7 +868,12 @@ def _filtered_items(profiles: Dict[str, List[dict]], unit_filter: str) -> List[d
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
-    include_chars = not args.words_only
+    language = args.language
+    if language == "fr" and args.chars_only:
+        print("French vocabulary extraction only supports word output")
+        return 1
+
+    include_chars = not args.words_only and language == "zh"
     include_words = not args.chars_only
     if not include_chars and not include_words:
         print("No output type selected. Use --chars-only or --words-only")
@@ -674,7 +881,7 @@ def main(argv=None) -> int:
 
     min_count = max(1, args.min_count)
     top = max(0, args.top)
-    include_phrases = bool(args.with_phrases)
+    include_phrases = bool(args.with_phrases and language == "zh")
 
     if args.merge_manifest:
         book_dirs = _book_dirs_from_manifest(Path(args.merge_manifest))
@@ -706,6 +913,7 @@ def main(argv=None) -> int:
             min_cjk_chars=max(1, args.min_cjk_chars),
             jobs=max(1, args.jobs),
             verbose=args.verbose,
+            language=language,
         )
         profiles = write_merged_profiles(
             book_dirs,
@@ -716,8 +924,10 @@ def main(argv=None) -> int:
             include_chars=include_chars,
             include_words=include_words,
         )
-        if include_phrases:
+        if args.with_phrases:
             print("--with-phrases is ignored when --output-books is used")
+        if args.with_pos and language == "fr":
+            print("--with-pos is ignored for French surface-form extraction")
         print(
             f"Computed {len(profiles['chars']) if include_chars else 0} chars, "
             f"{len(profiles['words']) if include_words else 0} words "
@@ -727,17 +937,29 @@ def main(argv=None) -> int:
         if not args.corpus_dir:
             print("provide --corpus-dir or --merge-manifest")
             return 1
-        profiles = build_chinese_frequency_profiles(
-            Path(args.corpus_dir),
-            min_count=min_count,
-            top=top,
-            include_chars=include_chars,
-            include_words=include_words,
-            include_phrases=include_phrases,
-            phrase_max_length=max(2, args.phrase_max_length),
-            with_pos=args.with_pos,
-            verbose=args.verbose,
-        )
+        if language == "fr":
+            if args.with_pos:
+                print("--with-pos is ignored for French surface-form extraction")
+            if args.with_phrases:
+                print("--with-phrases is ignored for French extraction")
+            profiles = build_french_frequency_profiles(
+                Path(args.corpus_dir),
+                min_count=min_count,
+                top=top,
+                verbose=args.verbose,
+            )
+        else:
+            profiles = build_chinese_frequency_profiles(
+                Path(args.corpus_dir),
+                min_count=min_count,
+                top=top,
+                include_chars=include_chars,
+                include_words=include_words,
+                include_phrases=include_phrases,
+                phrase_max_length=max(2, args.phrase_max_length),
+                with_pos=args.with_pos,
+                verbose=args.verbose,
+            )
 
         if include_chars:
             _write_jsonl(Path(args.output_chars), profiles["chars"])

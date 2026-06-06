@@ -88,6 +88,57 @@ class BookRecommendationsTest(unittest.TestCase):
             self.assertEqual(rows[1]["unknown_word_tokens"], 9)
             self.assertTrue(output.exists())
 
+    def test_build_recommendations_can_filter_ranked_word_only_books(self):
+        with TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            words = root / "words.jsonl"
+            _write_jsonl(
+                words,
+                [
+                    {"unit": "word", "item": "chat", "count": 10, "rank": 1, "cumulative_count": 10, "coverage": 0.5},
+                    {"unit": "word", "item": "chien", "count": 10, "rank": 9000, "cumulative_count": 20, "coverage": 1.0},
+                ],
+            )
+            profile = root / "learner.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "known_thresholds": {"word_rank": 100},
+                        "frequency_lists": {"words": str(words)},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            ranked = root / "ranked"
+            unranked = root / "unranked"
+            _write_jsonl(ranked / "words.jsonl", [{"unit": "word", "item": "chat", "count": 9, "rank": 1, "cumulative_count": 9, "coverage": 1.0}])
+            _write_jsonl(unranked / "words.jsonl", [{"unit": "word", "item": "chien", "count": 9, "rank": 1, "cumulative_count": 9, "coverage": 1.0}])
+            manifest = root / "manifest.jsonl"
+            _write_jsonl(
+                manifest,
+                [
+                    {"included": True, "book_id": "ranked", "title": "Ranked", "book_dir": str(ranked)},
+                    {"included": True, "book_id": "unranked", "title": "Unranked", "book_dir": str(unranked)},
+                ],
+            )
+            tags = root / "tags.jsonl"
+            _write_jsonl(tags, [{"book_id": "ranked", "tags": [{"list_id": "canon", "rank": 1}]}])
+
+            rows = br.build_recommendations(
+                manifest,
+                profile,
+                root / "recommendations.jsonl",
+                tags_path=tags,
+                ranked_only=True,
+            )
+
+            self.assertEqual([row["book_id"] for row in rows], ["ranked"])
+            self.assertEqual(rows[0]["known_char_coverage"], None)
+            self.assertEqual(rows[0]["known_word_coverage"], 1.0)
+            self.assertEqual(rows[0]["tags"][0]["list_id"], "canon")
+
+
 
 if __name__ == "__main__":
     unittest.main()

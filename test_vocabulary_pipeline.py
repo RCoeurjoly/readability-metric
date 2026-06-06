@@ -321,6 +321,75 @@ class VocabularyPipelineTest(unittest.TestCase):
             self.assertEqual(manifest_rows[0]["required_cjk_character_count"], 1)
             self.assertTrue((included_dirs[0] / "chars.jsonl").exists())
 
+    def test_french_word_tokens_lowercase_and_drop_non_words(self):
+        class FakeToken:
+            def __init__(self, text: str):
+                self.text = text
+
+        class FakeTokenizer:
+            def make_doc(self, text: str):
+                return [
+                    FakeToken("Bonjour"),
+                    FakeToken(","),
+                    FakeToken("L'"),
+                    FakeToken("École"),
+                    FakeToken("123"),
+                    FakeToken("!")
+                ]
+
+        with patch("vocabulary_pipeline._get_french_tokenizer", return_value=FakeTokenizer()):
+            self.assertEqual(list(vp._french_word_tokens("ignored")), ["bonjour", "l'", "école"])
+
+    def test_write_french_per_book_profiles_and_merges_corpus_outputs(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            output = Path(tempdir) / "output"
+            books = output / "books"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "Essai", "fr", "Bonjour, bonjour l'école.")
+
+            output_words = output / "fr-words.jsonl"
+
+            with patch(
+                "vocabulary_pipeline._french_word_tokens",
+                return_value=["bonjour", "bonjour", "l'", "école"],
+            ):
+                result = vp.main(
+                    [
+                        "--language",
+                        "fr",
+                        "--corpus-dir",
+                        str(corpus_root),
+                        "--output-books",
+                        str(books),
+                        "--output-words",
+                        str(output_words),
+                        "--min-count",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            manifest_rows = [json.loads(line) for line in (books / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(manifest_rows), 1)
+            self.assertTrue(manifest_rows[0]["included"])
+            self.assertEqual(manifest_rows[0]["language"], "fr")
+            self.assertIsNone(manifest_rows[0]["chars_profile"])
+            self.assertEqual(manifest_rows[0]["words_profile"], "words.jsonl")
+
+            book_dir = Path(manifest_rows[0]["book_dir"])
+            self.assertTrue((book_dir / "book.json").exists())
+            self.assertFalse((book_dir / "chars.jsonl").exists())
+            self.assertTrue((book_dir / "words.jsonl").exists())
+
+            book_word_rows = [json.loads(line) for line in (book_dir / "words.jsonl").read_text(encoding="utf-8").splitlines()]
+            corpus_word_rows = [json.loads(line) for line in output_words.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(book_word_rows[0]["item"], "bonjour")
+            self.assertEqual(book_word_rows[0]["count"], 2)
+            self.assertEqual(corpus_word_rows[0]["item"], "bonjour")
+            self.assertEqual(corpus_word_rows[0]["count"], 2)
+
+
 
 if __name__ == "__main__":
     unittest.main()

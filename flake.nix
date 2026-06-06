@@ -38,6 +38,7 @@
             numpy
             pymongo
             scipy
+            spacy
             jieba
           ];
 
@@ -56,6 +57,7 @@
             numpy
             pymongo
             scipy
+            spacy
             jieba
           ]
         );

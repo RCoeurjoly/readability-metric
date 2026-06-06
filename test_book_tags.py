@@ -15,6 +15,40 @@ class BookTagsTest(unittest.TestCase):
         self.assertEqual(bt.normalize("《骆驼祥子》"), bt.normalize("駱駝祥子"))
         self.assertEqual(bt.normalize("张爱玲"), bt.normalize("張愛玲"))
 
+
+    def test_normalize_is_accent_insensitive_for_french(self):
+        self.assertEqual(bt.normalize("L'Éducation sentimentale"), bt.normalize("L'Education sentimentale"))
+        self.assertEqual(bt.normalize("À rebours"), bt.normalize("A rebours"))
+
+    def test_french_catalog_entries_include_sources(self):
+        entries = bt.french_canonical_entries()
+        list_ids = {entry["list_id"] for entry in entries}
+        self.assertIn("le_monde_fnac_100_books_century", list_ids)
+        self.assertIn("figaro_12_best_french_language_novels_1900_1950", list_ids)
+        self.assertIn("telerama_ideal_library_100", list_ids)
+
+    def test_french_match_uses_accent_insensitive_prefix_for_volumes(self):
+        entries = [
+            entry
+            for entry in bt.french_canonical_entries()
+            if entry["list_id"] == "telerama_ideal_library_100" and entry["title"] == "Les Misérables"
+        ]
+        manifest = [
+            {
+                "book_id": "miserables-1",
+                "title": "Les Miserables - Tome I - Fantine",
+                "creator": "Victor Hugo",
+                "filename": "miserables.epub",
+                "book_dir": "books/miserables",
+            }
+        ]
+
+        matches = bt.match_books(manifest, entries)
+
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["tags"][0]["match_type"], "title_creator_prefix")
+        self.assertEqual(matches[0]["tags"][0]["category"], "grands classiques")
+
     def test_match_books_uses_author_for_duplicate_canonical_titles(self):
         entries = bt.canonical_entries()
         manifest = [
