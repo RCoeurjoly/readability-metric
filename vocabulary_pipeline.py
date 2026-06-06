@@ -23,12 +23,13 @@ except Exception:  # pragma: no cover
     jieba = None
     jieba_posseg = None
 
-try:  # pragma: no cover - optional dependency for proper French tokenization.
+try:  # pragma: no cover - optional dependency for proper European-language tokenization.
     import spacy  # type: ignore
 except Exception:  # pragma: no cover
     spacy = None
 
-_FRENCH_NLP = None
+SPACY_WORD_LANGUAGES = {"ca", "fr", "pt"}
+_SPACY_NLPS: Dict[str, Any] = {}
 
 
 def _iter_chinese_epub_texts(corpus_root: Path, verbose: bool = False) -> Iterable[str]:
@@ -88,22 +89,30 @@ def _word_tokens(text: str) -> Iterable[str]:
             yield token.strip()
 
 
-def _get_french_tokenizer():
-    global _FRENCH_NLP
+def _get_spacy_tokenizer(language: str):
     if spacy is None:
-        raise RuntimeError("French tokenization requires spaCy. Install project dependencies first.")
-    if _FRENCH_NLP is None:
-        _FRENCH_NLP = spacy.blank("fr")
-        _FRENCH_NLP.max_length = max(_FRENCH_NLP.max_length, 20_000_000)
-    return _FRENCH_NLP
+        raise RuntimeError("Word tokenization requires spaCy. Install project dependencies first.")
+    if language not in _SPACY_NLPS:
+        nlp = spacy.blank(language)
+        nlp.max_length = max(nlp.max_length, 100_000_000)
+        _SPACY_NLPS[language] = nlp
+    return _SPACY_NLPS[language]
 
 
-def _french_word_tokens(text: str) -> Iterable[str]:
-    tokenizer = _get_french_tokenizer()
+def _get_french_tokenizer():
+    return _get_spacy_tokenizer("fr")
+
+
+def _spacy_word_tokens(text: str, language: str) -> Iterable[str]:
+    tokenizer = _get_spacy_tokenizer(language)
     for token in tokenizer.make_doc(text or ""):
         item = token.text.casefold().strip()
         if item and any(char.isalpha() for char in item):
             yield item
+
+
+def _french_word_tokens(text: str) -> Iterable[str]:
+    yield from _spacy_word_tokens(text, "fr")
 
 
 def _coarse_pos(raw_pos: str) -> str:
@@ -219,20 +228,36 @@ def _iter_language_epub_texts(
         )
 
 
+def build_spacy_frequency_profiles(
+    corpus_root: Path,
+    language: str,
+    min_count: int = 2,
+    top: int = 0,
+    verbose: bool = False,
+) -> Dict[str, List[dict]]:
+    word_counter: Counter[str] = Counter()
+    for text in _iter_language_epub_texts(corpus_root, language, verbose=verbose):
+        word_counter.update(_spacy_word_tokens(text, language))
+    return {
+        "chars": [],
+        "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count),
+        "phrases": [],
+    }
+
+
 def build_french_frequency_profiles(
     corpus_root: Path,
     min_count: int = 2,
     top: int = 0,
     verbose: bool = False,
 ) -> Dict[str, List[dict]]:
-    word_counter: Counter[str] = Counter()
-    for text in _iter_language_epub_texts(corpus_root, "fr", verbose=verbose):
-        word_counter.update(_french_word_tokens(text))
-    return {
-        "chars": [],
-        "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count),
-        "phrases": [],
-    }
+    return build_spacy_frequency_profiles(
+        corpus_root,
+        "fr",
+        min_count=min_count,
+        top=top,
+        verbose=verbose,
+    )
 
 
 def _extract_phrase_counts(text: str, max_len: int = 3) -> Counter:
@@ -372,19 +397,35 @@ def build_chinese_frequency_profile_from_text(
     }
 
 
-def build_french_frequency_profile_from_text(
+def build_spacy_frequency_profile_from_text(
     text: str,
+    language: str,
     min_count: int = 2,
     top: int = 0,
     include_words: bool = True,
 ) -> Dict[str, List[dict]]:
     word_counter: Counter[str] = Counter()
     if include_words:
-        word_counter.update(_french_word_tokens(text))
+        word_counter.update(_spacy_word_tokens(text, language))
     return {
         "chars": [],
         "words": _to_ranked_entries(word_counter, "word", top=top, min_count=min_count) if include_words else [],
     }
+
+
+def build_french_frequency_profile_from_text(
+    text: str,
+    min_count: int = 2,
+    top: int = 0,
+    include_words: bool = True,
+) -> Dict[str, List[dict]]:
+    return build_spacy_frequency_profile_from_text(
+        text,
+        "fr",
+        min_count=min_count,
+        top=top,
+        include_words=include_words,
+    )
 
 
 def build_frequency_profile_from_text(
@@ -395,9 +436,10 @@ def build_frequency_profile_from_text(
     include_chars: bool = True,
     include_words: bool = True,
 ) -> Dict[str, List[dict]]:
-    if language == "fr":
-        return build_french_frequency_profile_from_text(
+    if language in SPACY_WORD_LANGUAGES:
+        return build_spacy_frequency_profile_from_text(
             text,
+            language,
             min_count=min_count,
             top=top,
             include_words=include_words,
@@ -834,7 +876,7 @@ def _write_jsonl(path: Path, rows: Sequence[dict]) -> None:
 
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Extract ranked vocabulary profiles from EPUB corpora.")
-    parser.add_argument("--language", default="zh", choices=("zh", "fr"), help="Corpus language to process")
+    parser.add_argument("--language", default="zh", choices=("zh", "ca", "fr", "pt"), help="Corpus language to process")
     parser.add_argument("--corpus-dir", help="Directory containing EPUB files")
     parser.add_argument("--output-chars", default="results/chinese-chars.jsonl")
     parser.add_argument("--output-words", default="results/chinese-words.jsonl")
@@ -869,8 +911,8 @@ def _filtered_items(profiles: Dict[str, List[dict]], unit_filter: str) -> List[d
 def main(argv=None) -> int:
     args = _parse_args(argv)
     language = args.language
-    if language == "fr" and args.chars_only:
-        print("French vocabulary extraction only supports word output")
+    if language in SPACY_WORD_LANGUAGES and args.chars_only:
+        print(f"{language} vocabulary extraction only supports word output")
         return 1
 
     include_chars = not args.words_only and language == "zh"
@@ -926,8 +968,8 @@ def main(argv=None) -> int:
         )
         if args.with_phrases:
             print("--with-phrases is ignored when --output-books is used")
-        if args.with_pos and language == "fr":
-            print("--with-pos is ignored for French surface-form extraction")
+        if args.with_pos and language in SPACY_WORD_LANGUAGES:
+            print(f"--with-pos is ignored for {language} surface-form extraction")
         print(
             f"Computed {len(profiles['chars']) if include_chars else 0} chars, "
             f"{len(profiles['words']) if include_words else 0} words "
@@ -937,13 +979,14 @@ def main(argv=None) -> int:
         if not args.corpus_dir:
             print("provide --corpus-dir or --merge-manifest")
             return 1
-        if language == "fr":
+        if language in SPACY_WORD_LANGUAGES:
             if args.with_pos:
-                print("--with-pos is ignored for French surface-form extraction")
+                print(f"--with-pos is ignored for {language} surface-form extraction")
             if args.with_phrases:
-                print("--with-phrases is ignored for French extraction")
-            profiles = build_french_frequency_profiles(
+                print(f"--with-phrases is ignored for {language} extraction")
+            profiles = build_spacy_frequency_profiles(
                 Path(args.corpus_dir),
+                language,
                 min_count=min_count,
                 top=top,
                 verbose=args.verbose,

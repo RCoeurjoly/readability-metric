@@ -36,6 +36,7 @@
             langdetect
             lxml
             numpy
+            opencc
             pymongo
             scipy
             spacy
@@ -55,6 +56,7 @@
             langdetect
             lxml
             numpy
+            opencc
             pymongo
             scipy
             spacy

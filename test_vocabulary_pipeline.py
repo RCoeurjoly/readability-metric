@@ -337,7 +337,7 @@ class VocabularyPipelineTest(unittest.TestCase):
                     FakeToken("!")
                 ]
 
-        with patch("vocabulary_pipeline._get_french_tokenizer", return_value=FakeTokenizer()):
+        with patch("vocabulary_pipeline._get_spacy_tokenizer", return_value=FakeTokenizer()):
             self.assertEqual(list(vp._french_word_tokens("ignored")), ["bonjour", "l'", "école"])
 
     def test_write_french_per_book_profiles_and_merges_corpus_outputs(self):
@@ -351,7 +351,7 @@ class VocabularyPipelineTest(unittest.TestCase):
             output_words = output / "fr-words.jsonl"
 
             with patch(
-                "vocabulary_pipeline._french_word_tokens",
+                "vocabulary_pipeline._spacy_word_tokens",
                 return_value=["bonjour", "bonjour", "l'", "école"],
             ):
                 result = vp.main(
@@ -387,6 +387,104 @@ class VocabularyPipelineTest(unittest.TestCase):
             self.assertEqual(book_word_rows[0]["item"], "bonjour")
             self.assertEqual(book_word_rows[0]["count"], 2)
             self.assertEqual(corpus_word_rows[0]["item"], "bonjour")
+            self.assertEqual(corpus_word_rows[0]["count"], 2)
+
+
+    def test_write_portuguese_per_book_profiles_and_merges_corpus_outputs(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            output = Path(tempdir) / "output"
+            books = output / "books"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "Ensaio", "pt-BR", "Olá, olá mundo.")
+
+            output_words = output / "pt-words.jsonl"
+
+            with patch(
+                "vocabulary_pipeline._spacy_word_tokens",
+                return_value=["olá", "olá", "mundo"],
+            ):
+                result = vp.main(
+                    [
+                        "--language",
+                        "pt",
+                        "--corpus-dir",
+                        str(corpus_root),
+                        "--output-books",
+                        str(books),
+                        "--output-words",
+                        str(output_words),
+                        "--min-count",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            manifest_rows = [json.loads(line) for line in (books / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(manifest_rows), 1)
+            self.assertTrue(manifest_rows[0]["included"])
+            self.assertEqual(manifest_rows[0]["language"], "pt")
+            self.assertIsNone(manifest_rows[0]["chars_profile"])
+            self.assertEqual(manifest_rows[0]["words_profile"], "words.jsonl")
+
+            book_dir = Path(manifest_rows[0]["book_dir"])
+            self.assertFalse((book_dir / "chars.jsonl").exists())
+            self.assertTrue((book_dir / "words.jsonl").exists())
+
+            book_word_rows = [json.loads(line) for line in (book_dir / "words.jsonl").read_text(encoding="utf-8").splitlines()]
+            corpus_word_rows = [json.loads(line) for line in output_words.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(book_word_rows[0]["item"], "olá")
+            self.assertEqual(book_word_rows[0]["count"], 2)
+            self.assertEqual(corpus_word_rows[0]["item"], "olá")
+            self.assertEqual(corpus_word_rows[0]["count"], 2)
+
+
+    def test_write_catalan_per_book_profiles_and_merges_corpus_outputs(self):
+        with TemporaryDirectory() as tempdir:
+            corpus_root = Path(tempdir) / "corpus"
+            output = Path(tempdir) / "output"
+            books = output / "books"
+            corpus_root.mkdir()
+            _build_fake_epub(corpus_root / "book.epub", "Assaig", "ca", "Hola, hola món.")
+
+            output_words = output / "ca-words.jsonl"
+
+            with patch(
+                "vocabulary_pipeline._spacy_word_tokens",
+                return_value=["hola", "hola", "món"],
+            ):
+                result = vp.main(
+                    [
+                        "--language",
+                        "ca",
+                        "--corpus-dir",
+                        str(corpus_root),
+                        "--output-books",
+                        str(books),
+                        "--output-words",
+                        str(output_words),
+                        "--min-count",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            manifest_rows = [json.loads(line) for line in (books / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(manifest_rows), 1)
+            self.assertTrue(manifest_rows[0]["included"])
+            self.assertEqual(manifest_rows[0]["language"], "ca")
+            self.assertIsNone(manifest_rows[0]["chars_profile"])
+            self.assertEqual(manifest_rows[0]["words_profile"], "words.jsonl")
+
+            book_dir = Path(manifest_rows[0]["book_dir"])
+            self.assertFalse((book_dir / "chars.jsonl").exists())
+            self.assertTrue((book_dir / "words.jsonl").exists())
+
+            book_word_rows = [json.loads(line) for line in (book_dir / "words.jsonl").read_text(encoding="utf-8").splitlines()]
+            corpus_word_rows = [json.loads(line) for line in output_words.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(book_word_rows[0]["item"], "hola")
+            self.assertEqual(book_word_rows[0]["count"], 2)
+            self.assertEqual(corpus_word_rows[0]["item"], "hola")
             self.assertEqual(corpus_word_rows[0]["count"], 2)
 
 

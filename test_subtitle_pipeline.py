@@ -1,0 +1,100 @@
+"""Tests for subtitle vocabulary extraction."""
+
+from __future__ import annotations
+
+import json
+import zipfile
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+from unittest.mock import patch
+
+import book_recommendations as br
+import subtitle_pipeline as sp
+
+
+def _xml(sentences: list[str]) -> bytes:
+    body = "".join(f"<s id=\"{index}\">{sentence}</s>" for index, sentence in enumerate(sentences, start=1))
+    return f"<?xml version=\"1.0\" encoding=\"utf-8\"?><doc>{body}</doc>".encode("utf-8")
+
+
+class SubtitlePipelineTest(unittest.TestCase):
+    def test_extract_opus_xml_text_cleans_subtitle_artifacts(self):
+        data = _xml([
+            "1",
+            "00:00:01,000 --> 00:00:02,000",
+            "<i>小猫</i>{\\an8}喜欢电视",
+            "[字幕]",
+            "再见\\N朋友",
+        ])
+
+        self.assertEqual(sp.extract_opus_xml_text(data), "小猫 喜欢电视\n再见 朋友")
+
+    def test_normalize_chinese_text_uses_opencc(self):
+        class FakeOpenCC:
+            def __init__(self, mode: str):
+                self.mode = mode
+
+            def convert(self, text: str) -> str:
+                assert self.mode == "t2s"
+                return text.replace("貓", "猫").replace("電視", "电视")
+
+        with patch.dict("sys.modules", {"opencc": type("FakeModule", (), {"OpenCC": FakeOpenCC})}):
+            self.assertEqual(sp.normalize_chinese_text("貓看電視"), "猫看电视")
+
+    def test_build_subtitle_profiles_and_recommendations_are_compatible(self):
+        with TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            archive = root / "zh_CN.zip"
+            with zipfile.ZipFile(archive, "w") as zip_file:
+                zip_file.writestr("movie/easy.xml", _xml(["小猫小猫看电视"]))
+                zip_file.writestr("movie/hard.xml", _xml(["小狗研究量子力学"]))
+
+            output_items = root / "items"
+            output_chars = root / "subtitle-chars.jsonl"
+            output_words = root / "subtitle-words.jsonl"
+
+            with patch("subtitle_pipeline.normalize_chinese_text", side_effect=lambda text, mode="t2s": text), patch(
+                "vocabulary_pipeline._word_tokens",
+                side_effect=[
+                    ["小猫", "小猫", "看", "电视"],
+                    ["小狗", "研究", "量子力学"],
+                ],
+            ):
+                included_dirs = sp.build_subtitle_frequency_profiles(
+                    archive,
+                    output_items,
+                    output_chars,
+                    output_words,
+                    min_count=1,
+                    min_cjk_chars=1,
+                )
+
+            self.assertEqual(len(included_dirs), 2)
+            manifest_rows = [json.loads(line) for line in (output_items / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(manifest_rows), 2)
+            self.assertTrue(all(row["included"] for row in manifest_rows))
+            self.assertTrue(all(row["media_type"] == "subtitle" for row in manifest_rows))
+            self.assertTrue((Path(manifest_rows[0]["book_dir"]) / "chars.jsonl").exists())
+            self.assertTrue((Path(manifest_rows[0]["book_dir"]) / "words.jsonl").exists())
+
+            profile = root / "learner.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "known_thresholds": {"word_rank": 2},
+                        "frequency_lists": {"words": str(output_words), "characters": str(output_chars)},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            rows = br.build_recommendations(output_items / "manifest.jsonl", profile, root / "recs.jsonl", top_unknown=2)
+
+            self.assertEqual(len(rows), 2)
+            self.assertGreaterEqual(rows[0]["known_word_coverage"], rows[1]["known_word_coverage"])
+            self.assertEqual(rows[0]["media_type"], "subtitle")
+
+
+if __name__ == "__main__":
+    unittest.main()

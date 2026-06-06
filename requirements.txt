@@ -8,3 +8,4 @@ scipy>=1.11
 spacy>=3.7
 
 jieba>=0.42
+opencc>=1.1
