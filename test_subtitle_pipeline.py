@@ -95,6 +95,42 @@ class SubtitlePipelineTest(unittest.TestCase):
             self.assertGreaterEqual(rows[0]["known_word_coverage"], rows[1]["known_word_coverage"])
             self.assertEqual(rows[0]["media_type"], "subtitle")
 
+    def test_build_local_subtitle_profiles_from_srt_folder(self):
+        with TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            corpus = root / "archive"
+            episode_dir = corpus / "Dubbed Anime" / "Friendly Show"
+            episode_dir.mkdir(parents=True)
+            (episode_dir / "Friendly Show - 01.srt").write_text(
+                "1\n00:00:01,000 --> 00:00:02,000\n繁體貓看電視\n\n"
+                "2\n00:00:03,000 --> 00:00:04,000\n朋友再見\n",
+                encoding="utf-8",
+            )
+
+            output_items = root / "items"
+            output_chars = root / "chars.jsonl"
+            output_words = root / "words.jsonl"
+
+            with patch("subtitle_pipeline.normalize_chinese_text", side_effect=lambda text, mode="t2s": text.replace("繁體", "繁体").replace("貓", "猫").replace("電視", "电视").replace("見", "见")):
+                included_dirs = sp.build_local_subtitle_frequency_profiles(
+                    corpus,
+                    output_items,
+                    output_chars,
+                    output_words,
+                    min_count=1,
+                    min_cjk_chars=1,
+                )
+
+            self.assertEqual(len(included_dirs), 1)
+            manifest_rows = [json.loads(line) for line in (output_items / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(manifest_rows[0]["collection"], "Dubbed Anime")
+            self.assertEqual(manifest_rows[0]["series"], "Friendly Show")
+            self.assertEqual(manifest_rows[0]["title"], "Friendly Show - Friendly Show - 01")
+            self.assertEqual(manifest_rows[0]["media_type"], "subtitle")
+            chars = [json.loads(line)["item"] for line in (included_dirs[0] / "chars.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertIn("猫", chars)
+
+
 
 if __name__ == "__main__":
     unittest.main()
