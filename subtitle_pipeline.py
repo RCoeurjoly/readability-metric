@@ -35,6 +35,28 @@ ASS_OVERRIDE_RE = re.compile(r"\{\\[^}]*\}")
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 SRT_TIMING_RE = re.compile(r"^\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s+-->\s+\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}")
 LOCAL_SUBTITLE_EXTENSIONS = {".srt", ".ass"}
+MANDARIN_ARCHIVE_SOURCE = "Furretar/Mandarin-Subtitles-Archive"
+NON_MANDARIN_ARCHIVE_PARTS = {
+    "cantonese",
+    "english",
+    "eng",
+    "japanese",
+    "jpn",
+    "jp",
+    "yue",
+    "粤语",
+    "粵語",
+}
+MANDARIN_ARCHIVE_VARIANTS = {
+    "cn": "mainland",
+    "chs": "mainland",
+    "gb": "mainland",
+    "mainland": "mainland",
+    "cht": "taiwanese",
+    "taiwan": "taiwanese",
+    "taiwanese": "taiwanese",
+}
+EPISODE_RE = re.compile(r"(?:S(?P<season>\d{1,2})E(?P<episode>\d{1,3})|(?:^|[^\d])(?P<number>\d{1,3})(?:[^\d]|$))", re.I)
 
 
 def _subtitle_id(name: str) -> str:
@@ -152,6 +174,38 @@ def iter_local_subtitle_paths(root: Path) -> Iterable[Path]:
             yield path
 
 
+def _clean_path_label(value: str) -> str:
+    value = re.sub(r"\[[^\]]+\]", " ", value)
+    value = re.sub(r"\([^)]*\)", " ", value)
+    value = re.sub(r"[_.,-]+", " ", value)
+    return " ".join(value.split())
+
+
+def detect_mandarin_archive_variant(path: Path, root: Path) -> str | None:
+    relative_path = path.relative_to(root)
+    labels = [part.casefold() for part in relative_path.parts]
+    labels.extend(token.casefold() for token in re.split(r"[\s._\-\[\]()+]+", path.stem) if token)
+    for label in labels:
+        if label in MANDARIN_ARCHIVE_VARIANTS:
+            return MANDARIN_ARCHIVE_VARIANTS[label]
+    return None
+
+
+def is_mandarin_archive_subtitle_path(path: Path, root: Path) -> bool:
+    if not path.is_file() or path.suffix.casefold() not in LOCAL_SUBTITLE_EXTENSIONS:
+        return False
+    relative_path = path.relative_to(root)
+    labels = [part.casefold() for part in relative_path.parts]
+    labels.extend(token.casefold() for token in re.split(r"[\s._\-\[\]()+]+", path.stem) if token)
+    return not any(label in NON_MANDARIN_ARCHIVE_PARTS for label in labels)
+
+
+def iter_mandarin_archive_subtitle_paths(root: Path) -> Iterable[Path]:
+    for path in sorted(root.rglob("*")):
+        if is_mandarin_archive_subtitle_path(path, root):
+            yield path
+
+
 def local_subtitle_metadata(path: Path, root: Path) -> dict:
     relative_path = path.relative_to(root)
     parts = relative_path.parts
@@ -167,6 +221,37 @@ def local_subtitle_metadata(path: Path, root: Path) -> dict:
         "collection": collection,
         "series": series,
         "episode_title": episode,
+    }
+
+
+def mandarin_archive_subtitle_metadata(path: Path, root: Path) -> dict:
+    relative_path = path.relative_to(root)
+    parts = relative_path.parts
+    category = parts[0] if len(parts) > 1 else None
+    series = _clean_path_label(parts[1]) if len(parts) > 2 else (path.parent.name if path.parent != root else None)
+    series_parts = list(parts[2:-1]) if len(parts) > 3 else []
+    variant = detect_mandarin_archive_variant(path, root)
+    season = None
+    if series_parts:
+        season_candidates = [part for part in series_parts if part.casefold() not in MANDARIN_ARCHIVE_VARIANTS]
+        season = " / ".join(_clean_path_label(part) for part in season_candidates) or None
+
+    episode = path.stem
+    episode_number = None
+    for match in EPISODE_RE.finditer(path.stem):
+        episode_number = match.group("episode") or match.group("number")
+    title_parts = [part for part in (series, season, f"Episode {int(episode_number):02d}" if episode_number else _clean_path_label(episode)) if part]
+    return {
+        "filepath": str(relative_path),
+        "filename": path.name,
+        "title": " - ".join(title_parts),
+        "creator": None,
+        "collection": category,
+        "series": series,
+        "season": season,
+        "episode_title": _clean_path_label(episode),
+        "episode_number": int(episode_number) if episode_number else None,
+        "subtitle_variant": variant,
     }
 
 
@@ -378,12 +463,13 @@ def write_local_subtitle_frequency_profile(
     min_cjk_chars: int = 1,
     normalize: str = "t2s",
     verbose: bool = False,
+    metadata_builder=local_subtitle_metadata,
 ) -> dict:
     relative_name = str(subtitle_path.relative_to(corpus_root))
     item_id = _subtitle_id(relative_name)
     item_dir = output_items_dir / item_id
     item_dir.mkdir(parents=True, exist_ok=True)
-    metadata = local_subtitle_metadata(subtitle_path, corpus_root)
+    metadata = metadata_builder(subtitle_path, corpus_root)
 
     try:
         text = extract_local_subtitle_text(subtitle_path)
@@ -456,6 +542,7 @@ def write_local_subtitle_frequency_batch(
     min_cjk_chars: int = 1,
     normalize: str = "t2s",
     verbose: bool = False,
+    metadata_builder=local_subtitle_metadata,
 ) -> list[dict]:
     return [
         write_local_subtitle_frequency_profile(
@@ -470,6 +557,7 @@ def write_local_subtitle_frequency_batch(
             min_cjk_chars=min_cjk_chars,
             normalize=normalize,
             verbose=verbose,
+            metadata_builder=metadata_builder,
         )
         for path in paths
     ]
@@ -586,8 +674,10 @@ def build_local_subtitle_frequency_profiles(
     jobs: int = 1,
     limit: int = 0,
     verbose: bool = False,
+    path_iter=iter_local_subtitle_paths,
+    metadata_builder=local_subtitle_metadata,
 ) -> list[Path]:
-    subtitle_paths = list(iter_local_subtitle_paths(corpus_root))
+    subtitle_paths = list(path_iter(corpus_root))
     if limit:
         subtitle_paths = subtitle_paths[:limit]
     if verbose:
@@ -611,6 +701,7 @@ def build_local_subtitle_frequency_profiles(
                     min_cjk_chars,
                     normalize,
                     verbose,
+                    metadata_builder,
                 )
                 for batch in batches
             ]
@@ -638,6 +729,7 @@ def build_local_subtitle_frequency_profiles(
                     min_cjk_chars=min_cjk_chars,
                     normalize=normalize,
                     verbose=verbose,
+                    metadata_builder=metadata_builder,
                 )
             )
 
@@ -656,14 +748,52 @@ def build_local_subtitle_frequency_profiles(
     return included_dirs
 
 
+
+
+def build_mandarin_archive_frequency_profiles(
+    corpus_root: Path,
+    output_items_dir: Path,
+    output_chars: Path,
+    output_words: Path,
+    language: str = "zh",
+    source: str = MANDARIN_ARCHIVE_SOURCE,
+    source_version: str = "local",
+    min_count: int = 1,
+    top: int = 0,
+    min_cjk_chars: int = 1,
+    normalize: str = "t2s",
+    jobs: int = 1,
+    limit: int = 0,
+    verbose: bool = False,
+) -> list[Path]:
+    return build_local_subtitle_frequency_profiles(
+        corpus_root,
+        output_items_dir,
+        output_chars,
+        output_words,
+        language=language,
+        source=source,
+        source_version=source_version,
+        min_count=min_count,
+        top=top,
+        min_cjk_chars=min_cjk_chars,
+        normalize=normalize,
+        jobs=jobs,
+        limit=limit,
+        verbose=verbose,
+        path_iter=iter_mandarin_archive_subtitle_paths,
+        metadata_builder=mandarin_archive_subtitle_metadata,
+    )
+
+
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Extract ranked Chinese vocabulary profiles from subtitle corpora.")
     parser.add_argument("--language", default="zh", choices=("zh",), help="Subtitle language to process")
-    parser.add_argument("--source", default="opus-opensubtitles", choices=("opus-opensubtitles", "local-folder"))
+    parser.add_argument("--source", default="opus-opensubtitles", choices=("opus-opensubtitles", "local-folder", "mandarin-subtitles-archive"))
     parser.add_argument("--opus-language", default=DEFAULT_OPUS_LANGUAGE)
     parser.add_argument("--opus-api", default=DEFAULT_OPUS_API)
     parser.add_argument("--archive", help="Existing OPUS zip archive to process instead of downloading")
-    parser.add_argument("--corpus-root", help="Local subtitle folder for --source local-folder")
+    parser.add_argument("--corpus-root", help="Local subtitle folder for --source local-folder or --source mandarin-subtitles-archive")
     parser.add_argument("--download-dir", default="~/Downloads/subtitles/opus-opensubtitles-zh_CN")
     parser.add_argument("--force-download", action="store_true")
     parser.add_argument("--output-items", default="results/zh-subtitles")
@@ -674,7 +804,7 @@ def _parse_args(argv=None):
     parser.add_argument("--min-cjk-chars", type=int, default=1)
     parser.add_argument("--normalize", default="t2s", choices=("t2s", "s2t", "none"))
     parser.add_argument("--jobs", type=int, default=1)
-    parser.add_argument("--limit", type=int, default=0, help="Process only the first N XML documents")
+    parser.add_argument("--limit", type=int, default=0, help="Process only the first N source documents")
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args(argv)
 
@@ -692,6 +822,23 @@ def main(argv=None) -> int:
             language=args.language,
             source="Mandarin Subtitles Archive",
             source_version="local",
+            min_count=max(1, args.min_count),
+            top=max(0, args.top),
+            min_cjk_chars=max(1, args.min_cjk_chars),
+            normalize=args.normalize,
+            jobs=max(1, args.jobs),
+            limit=max(0, args.limit),
+            verbose=args.verbose,
+        )
+    elif args.source == "mandarin-subtitles-archive":
+        if not args.corpus_root:
+            raise SystemExit("--corpus-root is required for --source mandarin-subtitles-archive")
+        included_dirs = build_mandarin_archive_frequency_profiles(
+            Path(args.corpus_root).expanduser(),
+            Path(args.output_items),
+            Path(args.output_chars),
+            Path(args.output_words),
+            language=args.language,
             min_count=max(1, args.min_count),
             top=max(0, args.top),
             min_cjk_chars=max(1, args.min_cjk_chars),

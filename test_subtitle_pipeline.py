@@ -130,6 +130,56 @@ class SubtitlePipelineTest(unittest.TestCase):
             chars = [json.loads(line)["item"] for line in (included_dirs[0] / "chars.jsonl").read_text(encoding="utf-8").splitlines()]
             self.assertIn("猫", chars)
 
+    def test_mandarin_archive_filters_non_mandarin_tracks_and_records_metadata(self):
+        with TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            corpus = root / "Mandarin-Subtitles-Archive"
+            mainland_dir = corpus / "Dubbed Anime" / "Kaguya-sama" / "Mainland"
+            japanese_dir = corpus / "Dubbed Anime" / "Kaguya-sama" / "jpn"
+            cantonese_dir = corpus / "Dubbed Anime" / "Kaguya-sama" / "Cantonese"
+            mainland_dir.mkdir(parents=True)
+            japanese_dir.mkdir(parents=True)
+            cantonese_dir.mkdir(parents=True)
+            (mainland_dir / "Kaguya-sama.S01E01.CHS.srt").write_text(
+                "1\n00:00:01,000 --> 00:00:02,000\n学生会今天开会\n",
+                encoding="utf-8",
+            )
+            (japanese_dir / "Kaguya-sama.S01E01.JPN.srt").write_text(
+                "1\n00:00:01,000 --> 00:00:02,000\n生徒会\n",
+                encoding="utf-8",
+            )
+            (cantonese_dir / "Kaguya-sama.S01E01.Cantonese.srt").write_text(
+                "1\n00:00:01,000 --> 00:00:02,000\n學生會今日開會\n",
+                encoding="utf-8",
+            )
+
+            paths = list(sp.iter_mandarin_archive_subtitle_paths(corpus))
+            self.assertEqual([path.name for path in paths], ["Kaguya-sama.S01E01.CHS.srt"])
+
+            output_items = root / "items"
+            output_chars = root / "chars.jsonl"
+            output_words = root / "words.jsonl"
+
+            with patch("subtitle_pipeline.normalize_chinese_text", side_effect=lambda text, mode="t2s": text):
+                included_dirs = sp.build_mandarin_archive_frequency_profiles(
+                    corpus,
+                    output_items,
+                    output_chars,
+                    output_words,
+                    min_count=1,
+                    min_cjk_chars=1,
+                )
+
+            self.assertEqual(len(included_dirs), 1)
+            manifest_rows = [json.loads(line) for line in (output_items / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(manifest_rows[0]["source"], "Furretar/Mandarin-Subtitles-Archive")
+            self.assertEqual(manifest_rows[0]["collection"], "Dubbed Anime")
+            self.assertEqual(manifest_rows[0]["series"], "Kaguya sama")
+            self.assertEqual(manifest_rows[0]["season"], None)
+            self.assertEqual(manifest_rows[0]["episode_number"], 1)
+            self.assertEqual(manifest_rows[0]["subtitle_variant"], "mainland")
+
+
 
 
 if __name__ == "__main__":

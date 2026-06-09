@@ -25,6 +25,7 @@ readability-metric = "readability_metric:main"
 story-pipeline = "story_pipeline:main"
 subtitle-pipeline = "subtitle_pipeline:main"
 subtitle-metadata = "subtitle_metadata:main"
+subtitle-ladder = "subtitle_ladder:main"
 vocabulary-pipeline = "vocabulary_pipeline:main"
 vocabulary-quiz = "vocabulary_quiz:main"
 book-recommendations = "book_recommendations:main"
@@ -41,7 +42,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["readability_metric", "corpus_analysis", "story_pipeline", "subtitle_pipeline", "subtitle_metadata", "vocabulary_pipeline", "vocabulary_quiz", "book_recommendations", "book_tags", "palindromic_words"]
+py-modules = ["readability_metric", "corpus_analysis", "story_pipeline", "subtitle_pipeline", "subtitle_metadata", "subtitle_ladder", "vocabulary_pipeline", "vocabulary_quiz", "book_recommendations", "book_tags", "palindromic_words"]
 
 [tool.ruff]
 line-length = 100

@@ -82,6 +82,39 @@ Important defaults are exposed via CLI:
 
 This is a practical starter toward a zero-cognate path: you can use the generated HTML for listening-first reading by creating audio with the emitted TTS command, then un-hiding text gradually.
 
+
+** Mandarin Subtitle Ladder Corpus
+
+For the Chinese ladder project, start with Furretar's Mandarin subtitle archive rather than random OPUS movie subtitles. It is organized around Chinese-dubbed series with matching soft subtitles, so the per-episode profiles are a better source for finding beginner audiovisual candidates.
+
+Clone or download the archive outside this repository, then ingest it:
+
+#+begin_src shell
+git clone --depth 1 https://github.com/Furretar/Mandarin-Subtitles-Archive.git ~/Downloads/Mandarin-Subtitles-Archive
+scripts/mandarin-subtitles-archive.sh ~/Downloads/Mandarin-Subtitles-Archive
+#+end_src
+
+The dedicated source mode skips obvious non-Mandarin tracks such as =jpn=, Japanese, Cantonese, and English subtitle folders/files. It writes per-episode profiles under =results/zh-mandarin-subtitles-archive= and merged frequency rankings to:
+
+- =results/zh-mandarin-subtitles-archive-chars.jsonl=
+- =results/zh-mandarin-subtitles-archive-words.jsonl=
+
+Manifest rows include archive-specific metadata such as =collection=, =series=, =season=, =episode_number=, and =subtitle_variant= so recommendations can be grouped by show and dialect/source variant.
+
+Build a watch ladder for a learner profile:
+
+#+begin_src shell
+python3 -m subtitle_ladder \
+  --manifest results/zh-mandarin-subtitles-archive/manifest.jsonl \
+  --learner-profile results/learner-profile.json \
+  --output-episodes results/subtitle-ladder-episodes.jsonl \
+  --output-series results/subtitle-ladder-series.jsonl \
+  --min-coverage 0.95 \
+  --target-coverage 0.98
+#+end_src
+
+The episode output is sorted by current watchability: =extensive= at 98%+ known-word coverage, =ci= at 95-98%, =assisted= at 90-95%, then =skip=. The series output ranks shows by how many watchable episodes are available contiguously from episode 1, which is the first practical approximation of a curriculum sequence.
+
 * Vocabulary Frequency Pipeline
 
 Extract ranked Chinese characters and words from an EPUB corpus:
